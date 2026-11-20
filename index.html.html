@@ -1,0 +1,2199 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Teacher – Мұғалімнің цифрлық көмекшісі</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SheetJS (XLSX) for Excel import -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <!-- PDF.js for extracting text from uploaded KTP PDF files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+        .tab-active {
+            background-color: #4f46e5;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-2xl border border-slate-700 transition-all duration-300">
+        <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>
+        <span id="toast-msg" class="text-sm font-medium"></span>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 shrink-0">
+                    <i data-lucide="graduation-cap" class="w-7 h-7"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">Smart Teacher</h1>
+                        <span class="px-2.5 py-0.5 text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full" data-i18n="badge_order">№110, №130, №472 бұйрықтарға сай</span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-slate-500 mt-0.5" data-i18n="subtitle">Мұғалімнің цифрлық көмекшісі • Аттестаттау және күнделікті жұмыс платформасы</p>
+                </div>
+            </div>
+
+            <!-- Language Switcher -->
+            <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                <button id="btn-kz" onclick="setLanguage('kz')" class="px-4 py-1.5 rounded-lg text-sm font-bold transition-all bg-white text-indigo-600 shadow-sm">
+                    🇰🇿 Қазақша
+                </button>
+                <button id="btn-ru" onclick="setLanguage('ru')" class="px-4 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 transition-all">
+                    🇷🇺 Русский
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        
+        <!-- Navigation Tabs -->
+        <nav class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-8 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+            <button onclick="switchTab('qmj')" id="tab-qmj" class="tab-active flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all">
+                <i data-lucide="file-text" class="w-4 h-4"></i>
+                <span data-i18n="nav_qmj">ҚМЖ Генераторы (№130)</span>
+            </button>
+            <button onclick="switchTab('bjb')" id="tab-bjb" class="flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all">
+                <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+                <span data-i18n="nav_bjb">БЖБ / ТЖБ Құрастырушы (№130 • 15.07.2026)</span>
+            </button>
+            <button onclick="switchTab('class')" id="tab-class" class="flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all">
+                <i data-lucide="users" class="w-4 h-4"></i>
+                <span data-i18n="nav_class">Сынып менеджменті</span>
+            </button>
+            <button onclick="switchTab('prompts')" id="tab-prompts" class="flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                <span data-i18n="nav_prompts">ЖИ Промпттар & Паспорт (№110)</span>
+            </button>
+        </nav>
+
+        <!-- MODULE 1: ҚМЖ ГЕНЕРАТОРЫ -->
+        <section id="section-qmj" class="fade-in">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left Form -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <span class="w-2 h-6 bg-indigo-600 rounded-full"></span>
+                            <span data-i18n="qmj_title">ҚМЖ деректерін енгізу</span>
+                        </h2>
+                        <button onclick="fillSampleQMJ()" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors" data-i18n="btn_sample">
+                            Үлгіні толтыру
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4" data-i18n="qmj_desc">Таңдалған бұйрық талаптарына сәйкес қысқа мерзімді жоспар құрылымы автоматты түрде жасалады.</p>
+
+                    <!-- Order Selector (110 / 472 / 130) -->
+                    <div class="mb-4 p-3.5 bg-indigo-50/70 rounded-xl border border-indigo-200 space-y-2.5">
+                        <label class="block text-xs font-bold text-indigo-950" data-i18n="lbl_select_order">Нормативтік бұйрықты таңдау:</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" id="order-btn-110" onclick="selectQMJOrder('110')" class="py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center bg-indigo-600 text-white border-indigo-600 shadow-sm" data-i18n="btn_order_110">
+                                №110 бұйрық
+                            </button>
+                            <button type="button" id="order-btn-472" onclick="selectQMJOrder('472')" class="py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center bg-white text-slate-700 border-slate-300 hover:bg-slate-50" data-i18n="btn_order_472">
+                                №472 бұйрық
+                            </button>
+                            <button type="button" id="order-btn-130" onclick="selectQMJOrder('130')" class="py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center bg-white text-slate-700 border-slate-300 hover:bg-slate-50" data-i18n="btn_order_130">
+                                №130 (Стандарт)
+                            </button>
+                        </div>
+                        <p id="order-info-badge" class="text-[11px] text-indigo-900 leading-snug"></p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_subject">Пән атауы</label>
+                                <select id="qmj-subject" onchange="updateTextbookOptions('qmj')" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                                    <option value="Информатика">Информатика</option>
+                                    <option value="Алгебра">Алгебра</option>
+                                    <option value="Қазақ тілі">Қазақ тілі / Казахский язык</option>
+                                    <option value="Орыс тілі">Орыс тілі / Русский язык</option>
+                                    <option value="Қазақстан тарихы">Қазақстан тарихы / История Казахстана</option>
+                                    <option value="Физика">Физика</option>
+                                    <option value="Химия">Химия</option>
+                                    <option value="Биология">Биология</option>
+                                    <option value="География">География</option>
+                                    <option value="Ағылшын тілі">Ағылшын тілі / Английский язык</option>
+                                    <option value="Бастауыш сынып">Бастауыш сынып / Начальные классы</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_grade">Сынып</label>
+                                <select id="qmj-grade" onchange="updateTextbookOptions('qmj')" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                                    <option value="1">1 сынып / класс</option>
+                                    <option value="2">2 сынып / класс</option>
+                                    <option value="3">3 сынып / класс</option>
+                                    <option value="4">4 сынып / класс</option>
+                                    <option value="5">5 сынып / класс</option>
+                                    <option value="6">6 сынып / класс</option>
+                                    <option value="7">7 сынып / класс</option>
+                                    <option value="8" selected>8 сынып / класс</option>
+                                    <option value="9">9 сынып / класс</option>
+                                    <option value="10">10 сынып / класс</option>
+                                    <option value="11">11 сынып / класс</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- OKULYK.KZ TEXTBOOK & PUBLISHER SELECTOR (QMJ) -->
+                        <div class="p-3.5 bg-sky-50/70 rounded-xl border border-sky-200 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-sky-900 flex items-center gap-1.5">
+                                    <i data-lucide="book-open" class="w-4 h-4 text-sky-600"></i>
+                                    <span data-i18n="okulyk_box_title">Оқулық таңдау (okulyk.kz)</span>
+                                </span>
+                                <a id="qmj-okulyk-link" href="https://okulyk.kz/" target="_blank" rel="noopener noreferrer" class="text-[11px] font-bold text-white bg-sky-600 hover:bg-sky-700 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shadow-xs">
+                                    <span data-i18n="btn_open_okulyk">okulyk.kz сайтынан оқулықты ашу</span>
+                                    <i data-lucide="external-link" class="w-3 h-3"></i>
+                                </a>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1" data-i18n="lbl_publisher">Кітап баспасын таңдау</label>
+                                    <select id="qmj-publisher" onchange="updateTextbookOptions('qmj')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none bg-white">
+                                        <option value="Атамұра">Атамұра (Атамура)</option>
+                                        <option value="Мектеп">Мектеп</option>
+                                        <option value="Алматыкітап">Алматыкітап баспасы</option>
+                                        <option value="Арман-ПВ" selected>Арман-ПВ</option>
+                                        <option value="НЗМ">НЗМ / НИШ (Назарбаев Зияткерлік мектептері)</option>
+                                        <option value="Көкжиек-Горизонт">Көкжиек-Горизонт</option>
+                                        <option value="Бөбек / Әдіскер / Жазушы">Бөбек / Әдіскер / Жазушы</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1" data-i18n="lbl_book">Пән бойынша кітапты таңдау</label>
+                                    <select id="qmj-book" onchange="syncOkulykLink('qmj')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none bg-white">
+                                        <!-- Populated dynamically -->
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_teacher">Педагогтің аты-жөні</label>
+                            <input type="text" id="qmj-teacher" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" data-i18n-placeholder="ph_teacher" placeholder="Мысалы: Ахметова Айгүл Серікқызы">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_section">Бөлім (ҰМЖ бойынша)</label>
+                            <input type="text" id="qmj-section" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" data-i18n-placeholder="ph_section" placeholder="Мысалы: Компьютерлік желілер және ақпараттық қауіпсіздік">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_topic">Сабақ тақырыбы *</label>
+                            <input type="text" id="qmj-topic" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" data-i18n-placeholder="ph_topic" placeholder="Мысалы: Жасанды интеллект және цифрлық сауаттылық">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_objective">Оқу мақсаты (Оқу бағдарламасына сәйкес)</label>
+                            <textarea id="qmj-objective" rows="2" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" data-i18n-placeholder="ph_objective" placeholder="Мысалы: 7.4.2.1 ақпаратты қорғау қажеттілігін негіздеу"></textarea>
+                        </div>
+
+                        <button onclick="generateQMJ()" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md shadow-indigo-200 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="wand-2" class="w-4 h-4"></i>
+                            <span data-i18n="btn_gen_qmj">ҚМЖ құрастыру</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Output -->
+                <div class="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                    <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-200">
+                        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <i data-lucide="file-check-2" class="w-5 h-5 text-emerald-600"></i>
+                            <span id="qmj-result-heading" data-i18n="qmj_result_title">Дайын ҚМЖ құжаты (№110 бұйрық үлгісі)</span>
+                        </h3>
+                        <div class="flex items-center gap-2">
+                            <button onclick="copyContent('qmj-output-area')" class="px-3.5 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors flex items-center gap-1.5">
+                                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                <span data-i18n="btn_copy">Көшіру</span>
+                            </button>
+                            <button onclick="downloadDoc('qmj-output-area', 'QMJ_SmartTeacher')" class="px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors flex items-center gap-1.5 shadow-sm">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                <span data-i18n="btn_word">Word (.doc) жүктеу</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="qmj-output-area" class="flex-1 overflow-x-auto text-sm text-slate-800 space-y-4">
+                        <!-- Initial Placeholder State -->
+                        <div class="h-80 flex flex-col items-center justify-center text-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                            <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
+                                <i data-lucide="file-plus-2" class="w-6 h-6"></i>
+                            </div>
+                            <p class="font-semibold text-slate-700 mb-1" data-i18n="qmj_empty_title">ҚМЖ әлі құрастырылмады</p>
+                            <p class="text-xs text-slate-500 max-w-md" data-i18n="qmj_empty_desc">Сол жақтағы өрістерді толтырып «ҚМЖ құрастыру» батырмасын басыңыз немесе «Үлгіні толтыру» түймесін пайдаланыңыз.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODULE 2: БЖБ / ТЖБ ҚҰРАСТЫРУШЫ (№472 БҰЙРЫҚ) -->
+        <section id="section-bjb" class="hidden fade-in">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left Form -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <span class="w-2 h-6 bg-emerald-600 rounded-full"></span>
+                            <span data-i18n="bjb_title">Жиынтық бағалау (№130 бұйрық, 15.07.2026 ж. өзг.)</span>
+                        </h2>
+                        <button onclick="fillSampleBJB()" class="text-xs font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors" data-i18n="btn_sample">
+                            Үлгіні толтыру
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4" data-i18n="bjb_desc">ҚР БҒМ 2020 жылғы 6 сәуірдегі № 130 бұйрығының 2026 жылғы 15 шілдедегі өзгерістері негізінде КТЖ бойынша БЖБ және ТЖБ тапсырмаларын саралайды.</p>
+
+                    <!-- KTP (Күнтізбелік тақырыптық жоспар) Upload Block -->
+                    <div class="mb-4 p-3.5 bg-amber-50/80 rounded-xl border border-amber-200 space-y-2.5">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                                <i data-lucide="calendar-range" class="w-4 h-4 text-amber-600"></i>
+                                <span data-i18n="ktp_box_title">Күнтізбелік-тақырыптық жоспар (КТЖ)</span>
+                            </span>
+                            <label for="ktp-file-input" class="cursor-pointer text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs">
+                                <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                                <span data-i18n="btn_add_ktp">Күнтізбелік тақырыптық жоспарды қосу</span>
+                            </label>
+                            <input type="file" id="ktp-file-input" accept=".xlsx,.xls,.csv,.doc,.docx,.pdf,.txt" onchange="handleKTPFileUpload(event)" class="hidden">
+                        </div>
+                        <p class="text-[11px] text-amber-900/80" data-i18n="ktp_formats_hint">Қолдау көрсетілетін форматтар: Excel (.xlsx, .xls, .csv), Word (.doc, .docx), PDF (.pdf)</p>
+                        <div id="ktp-status-panel" class="hidden bg-white p-2.5 rounded-lg border border-amber-200 text-xs space-y-1.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <span id="ktp-file-badge" class="font-bold text-emerald-700 truncate"></span>
+                                <button type="button" onclick="clearKTPData()" class="text-[11px] text-rose-600 hover:underline font-semibold shrink-0" data-i18n="btn_clear_ktp">Тазарту</button>
+                            </div>
+                            <p id="ktp-extracted-summary" class="text-[11px] text-slate-600 leading-snug"></p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_assess_type">Бағалау түрі</label>
+                                <select id="bjb-type" onchange="syncAssessmentDuration()" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                    <option value="БЖБ / СОР">БЖБ / СОР</option>
+                                    <option value="ТЖБ / СОЧ">ТЖБ / СОЧ</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_max_score">Максималды балл</label>
+                                <input type="number" id="bjb-score" value="10" min="5" max="30" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_time_limit">Орындау уақыты (мин)</label>
+                                <input type="number" id="bjb-time" value="20" min="10" max="60" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_quarter">Тоқсан / Четверть</label>
+                                <select id="bjb-quarter" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                    <option value="1">1-тоқсан / 1 четверть</option>
+                                    <option value="2" selected>2-тоқсан / 2 четверть</option>
+                                    <option value="3">3-тоқсан / 3 четверть</option>
+                                    <option value="4">4-тоқсан / 4 четверть</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_subject">Пән атауы</label>
+                                <select id="bjb-subject" onchange="updateTextbookOptions('bjb')" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                    <option value="Қазақстан тарихы" selected>Қазақстан тарихы / История Казахстана</option>
+                                    <option value="Информатика">Информатика</option>
+                                    <option value="Алгебра">Алгебра</option>
+                                    <option value="Қазақ тілі">Қазақ тілі / Казахский язык</option>
+                                    <option value="Орыс тілі">Орыс тілі / Русский язык</option>
+                                    <option value="Физика">Физика</option>
+                                    <option value="Химия">Химия</option>
+                                    <option value="Биология">Биология</option>
+                                    <option value="География">География</option>
+                                    <option value="Ағылшын тілі">Ағылшын тілі / Английский язык</option>
+                                    <option value="Бастауыш сынып">Бастауыш сынып / Начальные классы</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_grade">Сынып</label>
+                                <select id="bjb-grade" onchange="updateTextbookOptions('bjb')" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                    <option value="1">1 сынып / класс</option>
+                                    <option value="2">2 сынып / класс</option>
+                                    <option value="3">3 сынып / класс</option>
+                                    <option value="4">4 сынып / класс</option>
+                                    <option value="5">5 сынып / класс</option>
+                                    <option value="6">6 сынып / класс</option>
+                                    <option value="7">7 сынып / класс</option>
+                                    <option value="8" selected>8 сынып / класс</option>
+                                    <option value="9">9 сынып / класс</option>
+                                    <option value="10">10 сынып / класс</option>
+                                    <option value="11">11 сынып / класс</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- OKULYK.KZ TEXTBOOK & PUBLISHER SELECTOR (BJB) -->
+                        <div class="p-3.5 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                                    <i data-lucide="book-open" class="w-4 h-4 text-emerald-600"></i>
+                                    <span data-i18n="okulyk_box_title">Оқулық таңдау (okulyk.kz)</span>
+                                </span>
+                                <a id="bjb-okulyk-link" href="https://okulyk.kz/" target="_blank" rel="noopener noreferrer" class="text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shadow-xs">
+                                    <span data-i18n="btn_open_okulyk">okulyk.kz сайтынан оқулықты ашу</span>
+                                    <i data-lucide="external-link" class="w-3 h-3"></i>
+                                </a>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1" data-i18n="lbl_publisher">Кітап баспасын таңдау</label>
+                                    <select id="bjb-publisher" onchange="updateTextbookOptions('bjb')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                        <option value="Атамұра" selected>Атамұра (Атамура)</option>
+                                        <option value="Мектеп">Мектеп</option>
+                                        <option value="Алматыкітап">Алматыкітап баспасы</option>
+                                        <option value="Арман-ПВ">Арман-ПВ</option>
+                                        <option value="НЗМ">НЗМ / НИШ (Назарбаев Зияткерлік мектептері)</option>
+                                        <option value="Көкжиек-Горизонт">Көкжиек-Горизонт</option>
+                                        <option value="Бөбек / Әдіскер / Жазушы">Бөбек / Әдіскер / Жазушы</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1" data-i18n="lbl_book">Пән бойынша кітапты таңдау</label>
+                                    <select id="bjb-book" onchange="syncOkulykLink('bjb')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                        <!-- Populated dynamically -->
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_bjb_topic">Бөлім немесе тақырып *</label>
+                            <input type="text" id="bjb-topic" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" data-i18n-placeholder="ph_bjb_topic" placeholder="Мысалы: Алаш қозғалысы және қазақ зиялылары">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_bloom">Ойлау дағдыларының деңгейі</label>
+                            <select id="bjb-level" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                <option value="know" data-i18n="bloom_1">Білу және түсіну / Знание и понимание</option>
+                                <option value="apply" selected data-i18n="bloom_2">Қолдану / Применение</option>
+                                <option value="high" data-i18n="bloom_3">Жоғары деңгей дағдылары / Навыки высокого порядка</option>
+                            </select>
+                        </div>
+
+                        <button onclick="generateBJB()" class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="list-checks" class="w-4 h-4"></i>
+                            <span data-i18n="btn_gen_bjb">Тапсырма мен дескриптор жасау</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Output -->
+                <div class="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                    <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-200">
+                        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <i data-lucide="award" class="w-5 h-5 text-indigo-600"></i>
+                            <span data-i18n="bjb_result_title">Бағалау тапсырмасы мен дескриптор (№130 бұйрық • 15.07.2026)</span>
+                        </h3>
+                        <div class="flex items-center gap-2">
+                            <button onclick="copyContent('bjb-output-area')" class="px-3.5 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors flex items-center gap-1.5">
+                                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                <span data-i18n="btn_copy">Көшіру</span>
+                            </button>
+                            <button onclick="downloadDoc('bjb-output-area', 'BJB_SmartTeacher')" class="px-3.5 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors flex items-center gap-1.5 shadow-sm">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                <span data-i18n="btn_word">Word (.doc) жүктеу</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="bjb-output-area" class="flex-1 overflow-x-auto text-sm text-slate-800 space-y-4">
+                        <div class="h-80 flex flex-col items-center justify-center text-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                            <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+                                <i data-lucide="clipboard-list" class="w-6 h-6"></i>
+                            </div>
+                            <p class="font-semibold text-slate-700 mb-1" data-i18n="bjb_empty_title">Тапсырма әлі құрастырылмады</p>
+                            <p class="text-xs text-slate-500 max-w-md" data-i18n="bjb_empty_desc">Тақырып пен ойлау деңгейін таңдап, бағалау критерийі мен дескрипторлар кестесін автоматты түрде алыңыз.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODULE 3: СЫНЫП МЕНЕДЖМЕНТІ (ТОПҚА БӨЛУ & КЕЗДЕЙСОҚ ТАҢДАУ) -->
+        <section id="section-class" class="hidden fade-in">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left Input -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <span class="w-2 h-6 bg-amber-500 rounded-full"></span>
+                            <span data-i18n="class_title">Сынып тізімі</span>
+                        </h2>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <label for="excel-student-input" class="cursor-pointer text-xs font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors flex items-center gap-1.5">
+                                <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                                <span data-i18n="btn_import_excel">Excel жүктеу</span>
+                            </label>
+                            <input type="file" id="excel-student-input" accept=".xlsx,.xls,.csv" onchange="importStudentsFromExcel(event)" class="hidden">
+                            <button onclick="fillSampleStudents()" class="text-xs font-semibold text-amber-700 hover:text-amber-900 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 transition-colors" data-i18n="btn_fill_students">
+                                Үлгі тізімді толтыру
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-3" data-i18n="class_desc">Әр оқушының аты-жөнін жаңа жолдан жазыңыз немесе Excel (.xlsx, .xls, .csv) файлынан жүктеңіз.</p>
+                    
+                    <textarea id="student-list" rows="8" class="w-full p-3.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none mb-4" data-i18n-placeholder="ph_students" placeholder="Әлихан Нұрланұлы&#10;Айзере Болатқызы&#10;Ерасыл Талғатұлы..."></textarea>
+
+                    <div class="space-y-3">
+                        <button onclick="pickRandomStudent()" class="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="shuffle" class="w-4 h-4"></i>
+                            <span data-i18n="btn_random_student">Кездейсоқ оқушыны таңдау</span>
+                        </button>
+
+                        <div class="pt-3 border-t border-slate-100 flex items-center gap-3">
+                            <div class="w-1/3">
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1" data-i18n="lbl_group_count">Топ саны</label>
+                                <select id="group-count" class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl bg-white font-semibold">
+                                    <option value="2">2 топ / группы</option>
+                                    <option value="3" selected>3 топ / группы</option>
+                                    <option value="4">4 топ / группы</option>
+                                    <option value="5">5 топ / групп</option>
+                                    <option value="6">6 топ / групп</option>
+                                </select>
+                            </div>
+                            <div class="w-2/3 pt-4">
+                                <button onclick="divideIntoGroups()" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2">
+                                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                                    <span data-i18n="btn_divide_groups">Топтарға бөлу</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Output -->
+                <div class="lg:col-span-7 space-y-6">
+                    <!-- Random Student Winner Card -->
+                    <div id="random-result-box" class="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-6 rounded-2xl shadow-lg text-center relative overflow-hidden">
+                        <p class="text-xs uppercase tracking-wider font-semibold text-indigo-200 mb-2" data-i18n="random_label">Тақтаға шығатын / жауап беретін оқушы</p>
+                        <div id="picked-student-name" class="text-2xl sm:text-3xl font-extrabold py-3 tracking-tight">
+                            ---
+                        </div>
+                        <p class="text-xs text-indigo-200 mt-1" data-i18n="random_hint">Әділ бағалау және барлық оқушыларды сабаққа тарту құралы</p>
+                    </div>
+
+                    <!-- Groups Grid -->
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="users-round" class="w-5 h-5 text-emerald-600"></i>
+                            <span data-i18n="groups_result_title">Құрылған шағын топтар</span>
+                        </h3>
+                        <div id="groups-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                            <div class="col-span-full text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-xs text-slate-500" data-i18n="groups_empty">
+                                Оқушылар тізімін енгізіп, «Топтарға бөлу» батырмасын басыңыз
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODULE 4: ЖИ ПРОМПТТАР БАЗАСЫ & ЖОБА ПАСПОРТЫ (№110 БҰЙРЫҚ) -->
+        <section id="section-prompts" class="hidden fade-in space-y-6">
+            <!-- Passport Card according to Order 110 -->
+            <div class="bg-white p-6 rounded-2xl border border-indigo-200 shadow-sm bg-gradient-to-r from-white to-indigo-50/40">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <div>
+                        <span class="px-3 py-1 text-xs font-bold bg-indigo-100 text-indigo-800 rounded-full" data-i18n="passport_badge">ҚР Оқу-ағарту министрінің №110 бұйрығы бойынша</span>
+                        <h2 class="text-xl font-extrabold text-slate-900 mt-2" data-i18n="passport_title">«Smart Teacher» цифрлық білім беру ресурсының паспорты</h2>
+                    </div>
+                    <button onclick="copyContent('passport-content')" class="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors flex items-center gap-2 shadow-sm">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                        <span data-i18n="btn_copy_passport">Паспорт мәтінін көшіру</span>
+                    </button>
+                </div>
+
+                <div id="passport-content" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200">
+                        <h4 class="font-bold text-indigo-700 mb-1.5" data-i18n="pass_goal_t">1. Жобаның мақсаты</h4>
+                        <p class="text-slate-600 text-xs leading-relaxed" data-i18n="pass_goal_d">Педагогтердің күнделікті әдістемелік құжаттаманы (ҚМЖ, БЖБ/ТЖБ) әзірлеу уақытын үнемдеу, оқу процесіне цифрлық автоматтандыру мен жасанды интеллект құралдарын тиімді енгізу.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200">
+                        <h4 class="font-bold text-emerald-700 mb-1.5" data-i18n="pass_norm_t">2. Нормативтік негізі</h4>
+                        <p class="text-slate-600 text-xs leading-relaxed" data-i18n="pass_norm_d">ҚР Оқу-ағарту министрінің №110 бұйрығы (педагогтің цифрлық құзыреттілігі), №130 бұйрығы (ҚМЖ құрылымы) және №472 бұйрығы (жиынтық бағалау талаптары) негізінде әзірленген.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200">
+                        <h4 class="font-bold text-violet-700 mb-1.5" data-i18n="pass_res_t">3. Күтілетін нәтиже</h4>
+                        <p class="text-slate-600 text-xs leading-relaxed" data-i18n="pass_res_d">Мұғалімнің қағазбастылыққа жұмсайтын уақытын 65%-ға қысқарту, сабақ жоспарлау мен критериалды бағалау сапасын арттыру, екі тілді (KZ/RU) әмбебап қолжетімділік.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Textbook Explorer Panel (okulyk.kz) -->
+            <div class="bg-white p-6 rounded-2xl border border-sky-200 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <i data-lucide="library" class="w-5 h-5 text-sky-600"></i>
+                            <span data-i18n="okulyk_panel_title">Электрондық оқулықтар каталогы (okulyk.kz)</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5" data-i18n="okulyk_panel_desc">ҚР ресми баспалары бойынша электрондық оқулықтарды жылдам іздеу және ашу</p>
+                    </div>
+                    <a id="explorer-okulyk-btn" href="https://okulyk.kz/" target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-xl transition-colors flex items-center gap-2 shadow-sm">
+                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                        <span data-i18n="btn_open_okulyk">okulyk.kz сайтынан оқулықты ашу</span>
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_publisher">Кітап баспасын таңдау</label>
+                        <select id="exp-publisher" onchange="updateTextbookOptions('exp')" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-sky-500">
+                            <option value="Атамұра">Атамұра (Атамура)</option>
+                            <option value="Мектеп">Мектеп</option>
+                            <option value="Алматыкітап">Алматыкітап баспасы</option>
+                            <option value="Арман-ПВ">Арман-ПВ</option>
+                            <option value="НЗМ">НЗМ / НИШ (Назарбаев Зияткерлік мектептері)</option>
+                            <option value="Көкжиек-Горизонт">Көкжиек-Горизонт</option>
+                            <option value="Бөбек / Әдіскер / Жазушы">Бөбек / Әдіскер / Жазушы</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_subject">Пән атауы</label>
+                        <select id="exp-subject" onchange="updateTextbookOptions('exp')" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-sky-500">
+                            <option value="Информатика">Информатика</option>
+                            <option value="Алгебра">Алгебра</option>
+                            <option value="Қазақ тілі">Қазақ тілі / Казахский язык</option>
+                            <option value="Орыс тілі">Орыс тілі / Русский язык</option>
+                            <option value="Қазақстан тарихы">Қазақстан тарихы / История Казахстана</option>
+                            <option value="Физика">Физика</option>
+                            <option value="Химия">Химия</option>
+                            <option value="Биология">Биология</option>
+                            <option value="География">География</option>
+                            <option value="Ағылшын тілі">Ағылшын тілі / Английский язык</option>
+                            <option value="Бастауыш сынып">Бастауыш сынып / Начальные классы</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="lbl_grade">Сынып</label>
+                        <select id="exp-grade" onchange="updateTextbookOptions('exp')" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-sky-500">
+                            <option value="1">1 сынып / класс</option>
+                            <option value="2">2 сынып / класс</option>
+                            <option value="3">3 сынып / класс</option>
+                            <option value="4">4 сынып / класс</option>
+                            <option value="5">5 сынып / класс</option>
+                            <option value="6">6 сынып / класс</option>
+                            <option value="7">7 сынып / класс</option>
+                            <option value="8" selected>8 сынып / класс</option>
+                            <option value="9">9 сынып / класс</option>
+                            <option value="10">10 сынып / класс</option>
+                            <option value="11">11 сынып / класс</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 px-1">
+                    <div class="text-xs text-slate-700">
+                        <span class="font-semibold" data-i18n="lbl_selected_book_info">Таңдалған оқулық:</span>
+                        <span id="exp-book-display" class="font-bold text-sky-800 ml-1"></span>
+                    </div>
+                    <select id="exp-book" onchange="syncOkulykLink('exp')" class="px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-sky-500"></select>
+                </div>
+            </div>
+
+            <!-- Prompts Library -->
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="terminal" class="w-5 h-5 text-indigo-600"></i>
+                    <span data-i18n="prompts_lib_title">Мұғалімге арналған дайын ЖИ-промпттар жинағы (ChatGPT / Gemini)</span>
+                </h3>
+                <div id="prompts-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Rendered dynamically via JS -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-5 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <p>© 2025 <strong>Smart Teacher</strong> — <span data-i18n="footer_text">Педагогтердің цифрлық құзыреттілігін дамытуға арналған интерактивті прототип</span></p>
+            <p class="font-medium text-indigo-600">KZ / RU Bilingual • №110, №130, №472</p>
+        </div>
+    </footer>
+
+    <script>
+        // Configure PDF.js worker if available
+        if (window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        // Current Language State ('kz' or 'ru') and Selected QMJ Order ('110', '472', or '130')
+        let currentLang = 'kz';
+        let selectedQMJOrder = '110';
+
+        // Parsed KTP State for Automatic BJB / TJB Differentiation
+        let loadedKTP = {
+            fileName: '',
+            format: '',
+            topics: [],
+            sections: [],
+            rawText: ''
+        };
+
+        // Dictionary for Bilingual Support
+        const i18n = {
+            kz: {
+                badge_order: "№110, №130, №472 бұйрықтарға сай",
+                subtitle: "Мұғалімнің цифрлық көмекшісі • Аттестаттау және күнделікті жұмыс платформасы",
+                nav_qmj: "ҚМЖ Генераторы (№110 / №472)",
+                nav_bjb: "БЖБ / ТЖБ Құрастырушы (№130 • 15.07.2026)",
+                nav_class: "Сынып менеджменті",
+                nav_prompts: "ЖИ Промпттар & Паспорт (№110)",
+                qmj_title: "ҚМЖ деректерін енгізу",
+                btn_sample: "Үлгіні толтыру",
+                lbl_select_order: "Нормативтік бұйрықты таңдау:",
+                btn_order_110: "№110 бұйрық",
+                btn_order_472: "№472 бұйрық",
+                btn_order_130: "№130 (Стандарт)",
+                order_desc_110: "№110 бұйрық: Педагогтің кәсіби стандарты — цифрлық ресурстар (okulyk.kz + АКТ), функционалдық сауаттылық, саралау және рефлексияға негізделген ҚМЖ.",
+                order_desc_472: "№472 бұйрық: Критериалды бағалау қағидалары — бағалау критерийлері, ойлау дағдыларының деңгейлері, ҚБ тапсырмалары және дескрипторлар кестесі.",
+                order_desc_130: "№130 бұйрық (15.07.2026 ж. өзгерістерімен): Жаңартылған құрылым — сабақтың басы, ортасы, соңы және оқу мақсаттарына сәйкес стандартты ҚМЖ.",
+                qmj_desc: "Таңдалған бұйрық талаптарына сәйкес қысқа мерзімді жоспар құрылымы автоматты түрде жасалады.",
+                lbl_subject: "Пән атауы",
+                lbl_grade: "Сынып",
+                lbl_teacher: "Педагогтің аты-жөні",
+                bjb_title: "Жиынтық бағалау (№130 бұйрық, 15.07.2026 ж. өзг.)",
+                bjb_desc: "ҚР БҒМ 2020 жылғы 6 сәуірдегі № 130 бұйрығының 2026 жылғы 15 шілдедегі өзгерістері негізінде КТЖ бойынша БЖБ және ТЖБ тапсырмаларын саралайды.",
+                ktp_box_title: "Күнтізбелік-тақырыптық жоспар (КТЖ)",
+                btn_add_ktp: "Күнтізбелік тақырыптық жоспарды қосу",
+                ktp_formats_hint: "Форматтар: Excel (.xlsx, .xls, .csv), Word (.doc, .docx), PDF (.pdf)",
+                btn_clear_ktp: "Тазарту",
+                ktp_loaded_status: "КТЖ жүктелді ({format}): {file}",
+                ktp_summary_text: "Тақырыптар саны: {topicsCount} | Бөлімдер: {sectionsList}. №130 бұйрық (15.07.2026 ж.) бойынша БЖБ және ТЖБ автоматты сараланды.",
+                toast_ktp_loaded: "КТЖ сәтті жүктелді және №130 бұйрық (15.07.2026 ж.) бойынша сараланды ({count} тақырып)!",
+                toast_ktp_empty: "КТЖ құжатынан тақырып мәтіні табылмады. Басқа файлды тексеріңіз.",
+                toast_ktp_error: "КТЖ файлын оқу кезінде қате шықты (Excel, Word немесе PDF форматын тексеріңіз).",
+                lbl_assess_type: "Бағалау түрі",
+                lbl_max_score: "Максималды балл",
+                lbl_time_limit: "Орындау уақыты (мин)",
+                lbl_quarter: "Тоқсан",
+                lbl_bjb_topic: "Бөлім немесе тақырып *",
+                lbl_bloom: "Ойлау дағдыларының деңгейі",
+                bloom_1: "Білу және түсіну",
+                bloom_2: "Қолдану",
+                bloom_3: "Жоғары деңгей дағдылары (талдау, жинақтау, бағалау)",
+                btn_gen_bjb: "Тапсырма мен дескриптор жасау",
+                bjb_result_title: "Бағалау тапсырмасы мен дескриптор (№130 бұйрық • 15.07.2026)",
+                bjb_empty_title: "Тапсырма әлі құрастырылмады",
+                bjb_empty_desc: "Тақырып пен ойлау деңгейін таңдап, бағалау критерийі мен дескрипторлар кестесін автоматты түрде алыңыз.",
+                class_title: "Сынып тізімі",
+                btn_import_excel: "Excel жүктеу",
+                btn_fill_students: "Үлгі тізімді толтыру",
+                class_desc: "Әр оқушының аты-жөнін жаңа жолдан жазыңыз немесе Excel (.xlsx, .xls, .csv) файлынан жүктеңіз.",
+                btn_random_student: "Кездейсоқ оқушыны таңдау",
+                lbl_group_count: "Топ саны",
+                btn_divide_groups: "Топтарға бөлу",
+                btn_divide_pairs: "Жұпқа бөлу",
+                pair_title_prefix: "Жұп",
+                random_label: "Тақтаға шығатын / жауап беретін оқушы",
+                random_hint: "Әділ бағалау және барлық оқушыларды сабаққа тарту құралы",
+                groups_result_title: "Құрылған шағын топтар",
+                groups_empty: "Оқушылар тізімін енгізіп, «Топтарға бөлу» батырмасын басыңыз",
+                passport_badge: "ҚР Оқу-ағарту министрінің №110 бұйрығы бойынша",
+                passport_title: "«Smart Teacher» цифрлық білім беру ресурсының паспорты",
+                btn_copy_passport: "Паспорт мәтінін көшіру",
+                pass_goal_t: "1. Жобаның мақсаты",
+                pass_goal_d: "Педагогтердің күнделікті әдістемелік құжаттаманы (ҚМЖ, БЖБ/ТЖБ) әзірлеу уақытын үнемдеу, оқу процесіне цифрлық автоматтандыру мен жасанды интеллект құралдарын тиімді енгізу.",
+                pass_norm_t: "2. Нормативтік негізі",
+                pass_norm_d: "ҚР Оқу-ағарту министрінің №110 бұйрығы (педагогтің цифрлық құзыреттілігі), №130 бұйрығы (ҚМЖ құрылымы) және №472 бұйрығы (жиынтық бағалау талаптары) негізінде әзірленген.",
+                pass_res_t: "3. Күтілетін нәтиже",
+                pass_res_d: "Мұғалімнің қағазбастылыққа жұмсайтын уақытын 65%-ға қысқарту, сабақ жоспарлау мен критериалды бағалау сапасын арттыру, екі тілді (KZ/RU) әмбебап қолжетімділік.",
+                prompts_lib_title: "Мұғалімге арналған дайын ЖИ-промпттар жинағы (ChatGPT / Gemini)",
+                footer_text: "Педагогтердің цифрлық құзыреттілігін дамытуға арналған интерактивті прототип",
+                toast_copied: "Мәтін алмасу буферіне көшірілді!",
+                toast_empty_topic: "Алдымен сабақ тақырыбын енгізіңіз немесе «Үлгіні толтыру» батырмасын басыңыз!",
+                toast_empty_students: "Оқушылар тізімін енгізіңіз!",
+                toast_excel_loaded: "Excel файлынан {count} оқушы тізімге қосылды!",
+                toast_excel_empty: "Excel файлынан оқушы аты-жөні табылмады.",
+                toast_excel_error: "Excel файлын оқу кезінде қате шықты. Форматын тексеріңіз.",
+                toast_doc_downloaded: "Word (.doc) құжаты жүктелді!",
+                okulyk_box_title: "Оқулық таңдау (okulyk.kz)",
+                btn_open_okulyk: "okulyk.kz сайтынан оқулықты ашу",
+                lbl_publisher: "Кітап баспасын таңдау",
+                lbl_book: "Пән бойынша кітапты таңдау",
+                okulyk_panel_title: "Электрондық оқулықтар каталогы (okulyk.kz)",
+                okulyk_panel_desc: "ҚР ресми баспалары бойынша электрондық оқулықтарды жылдам іздеу және ашу",
+                lbl_selected_book_info: "Таңдалған оқулық:",
+                ph_subject: "Мысалы: Информатика",
+                ph_teacher: "Мысалы: Ахметова Айгүл Серікқызы",
+                ph_section: "Мысалы: Жасанды интеллект және цифрлық технологиялар",
+                ph_topic: "Мысалы: Нейрондық желілердің жұмыс істеу принципі",
+                ph_objective: "Мысалы: 8.3.1.2 жасанды интеллекттің қолданылу салаларын сипаттау",
+                ph_bjb_topic: "Мысалы: Алгоритмдер және программалау",
+                ph_students: "Әлихан Нұрланұлы\nАйзере Болатқызы\nЕрасыл Талғатұлы..."
+            },
+            ru: {
+                badge_order: "По Приказам №110, №130, №472",
+                subtitle: "Цифровой помощник учителя • Платформа для аттестации и ежедневной работы",
+                nav_qmj: "Генератор КСП (№110 / №472)",
+                nav_bjb: "Конструктор СОР / СОЧ (№130 • 15.07.2026)",
+                nav_class: "Класс-менеджмент",
+                nav_prompts: "ИИ-промпты & Паспорт (№110)",
+                qmj_title: "Ввод данных для КСП",
+                btn_sample: "Заполнить пример",
+                lbl_select_order: "Выбор нормативного приказа:",
+                btn_order_110: "Приказ №110",
+                btn_order_472: "Приказ №472",
+                btn_order_130: "Приказ №130",
+                order_desc_110: "Приказ №110: Профстандарт педагога — акцент на цифровые ресурсы (okulyk.kz + ИКТ), функциональную грамотность, дифференциацию и рефлексию.",
+                order_desc_472: "Приказ №472: Правила критериального оценивания — критерии оценивания, уровни мыслительных навыков, задания ФО и таблица дескрипторов.",
+                order_desc_130: "Приказ №130 (с изм. от 15.07.2026 г.): Обновленная 3-этапная структура урока (начало, середина, конец) согласно целям обучения.",
+                qmj_desc: "Структура краткосрочного плана формируется автоматически в соответствии с выбранным Приказом МП РК.",
+                lbl_subject: "Предмет",
+                lbl_grade: "Класс",
+                lbl_teacher: "ФИО педагога",
+                bjb_title: "Суммативное оценивание (Приказ №130, изм. 15.07.2026)",
+                bjb_desc: "На основе Приказа МОН РК от 6 апреля 2020 года № 130 с изменениями от 15 июля 2026 года дифференцирует задания СОР и СОЧ по загруженному КТП.",
+                ktp_box_title: "Календарно-тематический план (КТП)",
+                btn_add_ktp: "Добавить календарно-тематический план",
+                ktp_formats_hint: "Форматы: Excel (.xlsx, .xls, .csv), Word (.doc, .docx), PDF (.pdf)",
+                btn_clear_ktp: "Очистить",
+                ktp_loaded_status: "КТП загружен ({format}): {file}",
+                ktp_summary_text: "Найдено тем: {topicsCount} | Разделы: {sectionsList}. СОР и СОЧ дифференцированы по Приказу №130 (ред. 15.07.2026).",
+                toast_ktp_loaded: "КТП загружен и дифференцирован по Приказу №130 от 15.07.2026 (тем: {count})!",
+                toast_ktp_empty: "Не удалось извлечь темы из файла КТП. Проверьте содержимое документа.",
+                toast_ktp_error: "Ошибка чтения файла КТП. Проверьте формат (Excel, Word или PDF).",
+                lbl_assess_type: "Вид оценивания",
+                lbl_max_score: "Максимальный балл",
+                lbl_time_limit: "Время выполнения (мин)",
+                lbl_quarter: "Четверть",
+                lbl_bjb_topic: "Раздел или тема *",
+                lbl_bloom: "Уровень мыслительных навыков",
+                bloom_1: "Знание и понимание",
+                bloom_2: "Применение",
+                bloom_3: "Навыки высокого порядка (анализ, синтез, оценка)",
+                btn_gen_bjb: "Создать задание и дескриптор",
+                bjb_result_title: "Оценочное задание и дескрипторы (Приказ №130 • 15.07.2026)",
+                bjb_empty_title: "Задание еще не создано",
+                bjb_empty_desc: "Выберите тему и уровень навыков, чтобы автоматически получить критерии и таблицу дескрипторов.",
+                class_title: "Список класса",
+                btn_import_excel: "Загрузить Excel",
+                btn_fill_students: "Заполнить пример списка",
+                class_desc: "Введите ФИО каждого ученика с новой строки или загрузите из файла Excel (.xlsx, .xls, .csv).",
+                btn_random_student: "Выбрать случайного ученика",
+                lbl_group_count: "Кол-во групп",
+                btn_divide_groups: "Разделить на группы",
+                btn_divide_pairs: "Разделить на пары",
+                pair_title_prefix: "Пара",
+                random_label: "Отвечающий ученик / выход к доске",
+                random_hint: "Инструмент справедливого опроса и вовлечения всех учащихся",
+                groups_result_title: "Сформированные малые группы",
+                groups_empty: "Введите список учеников и нажмите кнопку «Разделить на группы»",
+                passport_badge: "Согласно Приказу Министра просвещения РК №110",
+                passport_title: "Паспорт цифрового образовательного ресурса «Smart Teacher»",
+                btn_copy_passport: "Копировать паспорт",
+                pass_goal_t: "1. Цель проекта",
+                pass_goal_d: "Оптимизация времени педагогов на разработку методической документации (КСП, СОР/СОЧ), внедрение инструментов цифровой автоматизации и ИИ в учебный процесс.",
+                pass_norm_t: "2. Нормативная основа",
+                pass_norm_d: "Разработано на основе Приказа МП РК №110 (цифровая компетентность педагога), Приказа №130 (структура КСП) и Приказа №472 (требования к суммативному оцениванию).",
+                pass_res_t: "3. Ожидаемый результат",
+                pass_res_d: "Сокращение времени на бумажную работу на 65%, повышение качества планирования уроков и критериального оценивания, двуязычная (KZ/RU) доступность.",
+                prompts_lib_title: "База готовых ИИ-промптов для учителя (ChatGPT / Gemini)",
+                footer_text: "Интерактивный прототип для развития цифровой компетентности педагогов",
+                toast_copied: "Текст скопирован в буфер обмена!",
+                toast_empty_topic: "Сначала введите тему урока или нажмите «Заполнить пример»!",
+                toast_empty_students: "Введите список учеников!",
+                toast_excel_loaded: "Из Excel добавлено учеников: {count}",
+                toast_excel_empty: "В файле Excel не найдены имена учеников.",
+                toast_excel_error: "Ошибка при чтении Excel-файла. Проверьте формат.",
+                toast_doc_downloaded: "Документ Word (.doc) скачан!",
+                okulyk_box_title: "Выбор учебника (okulyk.kz)",
+                btn_open_okulyk: "Открыть учебник на okulyk.kz",
+                lbl_publisher: "Выбор издательства",
+                lbl_book: "Выбор учебника по предмету",
+                okulyk_panel_title: "Каталог электронных учебников (okulyk.kz)",
+                okulyk_panel_desc: "Быстрый поиск и открытие официальных учебников РК по издательствам и предметам",
+                lbl_selected_book_info: "Выбранный учебник:",
+                ph_subject: "Например: Информатика",
+                ph_teacher: "Например: Ахметова Айгуль Сериковна",
+                ph_section: "Например: Искусственный интеллект и цифровые технологии",
+                ph_topic: "Например: Принцип работы нейронных сетей",
+                ph_objective: "Например: 8.3.1.2 описывать области применения искусственного интеллекта",
+                ph_bjb_topic: "Например: Алгоритмы и программирование",
+                ph_students: "Алихан Нурланулы\nАйзере Болаткызы\nЕрасыл Талгатулы..."
+            }
+        };
+
+        // Official Kazakhstan Textbooks Database (okulyk.kz)
+        const textbooksDB = {
+            "Информатика": {
+                authors_kz: "Р.А. Қадырқұлов, Г.К. Нұрмұханбетова / Б.Г. Бостанов",
+                authors_ru: "Р.А. Кадыркулов, Г.К. Нурмуханбетова / Б.Г. Бостанов",
+                year: "2021–2024",
+                slug: "informatika"
+            },
+            "Алгебра": {
+                authors_kz: "А.Е. Әбілқасымова, Т.П. Кучер, В.Е. Корчевский",
+                authors_ru: "А.Е. Абылкасымова, Т.П. Кучер, В.Е. Корчевский",
+                year: "2021–2024",
+                slug: "algebra"
+            },
+            "Қазақ тілі": {
+                authors_kz: "Т.Н. Ермекова, Ж.К. Отарбекова / Ф.Ш. Оразбаева",
+                authors_ru: "Т.Н. Ермекова, Ж.К. Отарбекова / Ф.Ш. Оразбаева",
+                year: "2021–2024",
+                slug: "kazak-tili"
+            },
+            "Орыс тілі": {
+                authors_kz: "З.К. Сабитова, К.С. Скляренко / У.А. Жанпейс",
+                authors_ru: "З.К. Сабитова, К.С. Скляренко / У.А. Жанпейс",
+                year: "2021–2024",
+                slug: "russkij-jazyk"
+            },
+            "Қазақстан тарихы": {
+                authors_kz: "З.Е. Қабылдинов, М.Д. Шаймерденова, Е.М. Күркеев",
+                authors_ru: "З.Е. Кабульдинов, М.Д. Шаймерденова, Е.М. Куркеев",
+                year: "2021–2024",
+                slug: "kazakstan-tarihy"
+            },
+            "Физика": {
+                authors_kz: "Н.А. Закирова, Р.Р. Аширов / Б.А. Кронгарт",
+                authors_ru: "Н.А. Закирова, Р.Р. Аширов / Б.А. Кронгарт",
+                year: "2021–2024",
+                slug: "fizika"
+            },
+            "Химия": {
+                authors_kz: "М.Қ. Оспанова, Қ.С. Аухадиева, Т.Г. Белоусова",
+                authors_ru: "М.К. Оспанова, К.С. Аухадиева, Т.Г. Белоусова",
+                year: "2021–2024",
+                slug: "himija"
+            },
+            "Биология": {
+                authors_kz: "А.Р. Соловьева, Б.Т. Ибраимова / Е.А. Очкур",
+                authors_ru: "А.Р. Соловьева, Б.Т. Ибраимова / Е.А. Очкур",
+                year: "2021–2024",
+                slug: "biologija"
+            },
+            "География": {
+                authors_kz: "Р.Ә. Қаратабанов, Ж.Р. Байметова / С.Ә. Әбілмәжінова",
+                authors_ru: "Р.А. Каратабанов, Ж.Р. Байметова / С.А. Абильмажинова",
+                year: "2021–2024",
+                slug: "geografija"
+            },
+            "Ағылшын тілі": {
+                authors_kz: "Virginia Evans, Jenny Dooley, Bob Obee (Excel / Action / Aspect)",
+                authors_ru: "Virginia Evans, Jenny Dooley, Bob Obee (Excel / Action / Aspect)",
+                year: "2021–2024",
+                slug: "agylshyn-tili"
+            },
+            "Бастауыш сынып": {
+                authors_kz: "Ә.Е. Жұмабаева, Г.И. Уайсова / А.Б. Ақпаева, Л.А. Лебедева",
+                authors_ru: "А.Е. Жумабаева, Г.И. Уайсова / А.Б. Акпаева, Л.А. Лебедева",
+                year: "2021–2024",
+                slug: "bastauysh"
+            }
+        };
+
+        // Update Textbook Dropdown & okulyk.kz URL dynamically
+        function updateTextbookOptions(prefix) {
+            const subjectEl = document.getElementById(`${prefix}-subject`);
+            const gradeEl = document.getElementById(`${prefix}-grade`);
+            const publisherEl = document.getElementById(`${prefix}-publisher`);
+            const bookEl = document.getElementById(`${prefix}-book`);
+
+            if (!subjectEl || !gradeEl || !publisherEl || !bookEl) return;
+
+            const subject = subjectEl.value;
+            const grade = gradeEl.value;
+            const publisher = publisherEl.value;
+            const meta = textbooksDB[subject] || {
+                authors_kz: "ҚР Оқу-ағарту министрлігі бекіткен авторлық ұжым",
+                authors_ru: "Авторский коллектив, утвержденный МП РК",
+                year: "2022–2024",
+                slug: ""
+            };
+
+            const authors = currentLang === 'kz' ? meta.authors_kz : meta.authors_ru;
+            const bookLabel1 = currentLang === 'kz'
+                ? `${subject} (${grade}-сынып) — ${publisher} баспасы, ${authors} (${meta.year} ж.)`
+                : `${subject} (${grade} класс) — Изд. «${publisher}», ${authors} (${meta.year} г.)`;
+
+            const bookLabel2 = currentLang === 'kz'
+                ? `${subject} (${grade}-сынып, 1-2 бөлім) — «${publisher}» (${meta.year} ж.)`
+                : `${subject} (${grade} класс, ч. 1-2) — Изд. «${publisher}» (${meta.year} г.)`;
+
+            bookEl.innerHTML = `
+                <option value="${bookLabel1}">${bookLabel1}</option>
+                <option value="${bookLabel2}">${bookLabel2}</option>
+            `;
+
+            syncOkulykLink(prefix);
+        }
+
+        function syncOkulykLink(prefix) {
+            const subject = document.getElementById(`${prefix}-subject`).value;
+            const grade = document.getElementById(`${prefix}-grade`).value;
+            const publisher = document.getElementById(`${prefix}-publisher`).value;
+            const bookEl = document.getElementById(`${prefix}-book`);
+            const linkEl = prefix === 'exp'
+                ? document.getElementById('explorer-okulyk-btn')
+                : document.getElementById(`${prefix}-okulyk-link`);
+
+            const query = encodeURIComponent(`${subject} ${grade} ${publisher}`);
+            if (linkEl) {
+                linkEl.href = `https://okulyk.kz/?s=${query}`;
+            }
+            if (prefix === 'exp') {
+                const disp = document.getElementById('exp-book-display');
+                if (disp && bookEl) disp.textContent = bookEl.value;
+            }
+        }
+
+        // Ready-to-use Pedagogical Prompts Database
+        const promptsData = [
+            {
+                tag_kz: "ҚМЖ • №130 бұйрық",
+                tag_ru: "КСП • Приказ №130",
+                title_kz: "45 минуттық толық ҚМЖ құрастыру промпты",
+                title_ru: "Промпт для создания полного КСП на 45 минут",
+                text_kz: "Сен Қазақстан Республикасының білім беру стандарттарын жетік білетін әдіскерсің. ҚР Оқу-ағарту министрінің №130 бұйрығына сәйкес [ПӘН] пәнінен [СЫНЫП]-сыныпқа арналған «[ТАҚЫРЫП]» тақырыбында ҚМЖ жаса. Оқу мақсаты: [ОҚУ МАҚСАТЫ]. Сабақтың басы (7 мин), ортасы (30 мин - тапсырмалар мен дескрипторлармен), соңы (8 мин - рефлексия) және ЕББҚ оқушыларға арналған саралау тапсырмаларын кесте түрінде ұсын.",
+                text_ru: "Ты опытный методист, знающий стандарты образования Республики Казахстан. Составь КСП согласно Приказу МП РК №130 по предмету [ПРЕДМЕТ] для [КЛАСС] класса на тему «[ТЕМА]». Цель обучения: [ЦЕЛЬ ОБУЧЕНИЯ]. Включи начало урока (7 мин), середину (30 мин с заданиями и дескрипторами), конец (8 мин — рефлексия) и дифференциацию для детей с ООП в виде таблицы."
+            },
+            {
+                tag_kz: "БЖБ / ТЖБ • №472 бұйрық",
+                tag_ru: "СОР / СОЧ • Приказ №472",
+                title_kz: "Дескрипторлары бар БЖБ тапсырмаларын жасау",
+                title_ru: "Генерация заданий СОР с дескрипторами",
+                text_kz: "ҚР Оқу-ағарту министрінің №472 бұйрығына сәйкес [ПӘН] пәнінен [СЫНЫП]-сыныпқа «[БӨЛІМ]» бөлімі бойынша 10 балдық БЖБ тапсырмаларын құрастыр. Әр тапсырма үшін: 1) Ойлау дағдыларының деңгейін; 2) Бағалау критерийін; 3) Нақты қадамдық дескрипторлар мен балл қою кестесін жаса.",
+                text_ru: "Согласно Приказу МП РК №472 составь задания для СОР на 10 баллов по предмету [ПРЕДМЕТ] для [КЛАСС] класса по разделу «[РАЗДЕЛ]». Для каждого задания укажи: 1) Уровень мыслительных навыков; 2) Критерий оценивания; 3) Пошаговые дескрипторы и схему выставления баллов."
+            },
+            {
+                tag_kz: "Саралау • Инклюзия",
+                tag_ru: "Дифференциация • Инклюзия",
+                title_kz: "Деңгейлік (A, B, C) және ЕББҚ тапсырмалары",
+                title_ru: "Разноуровневые задания (A, B, C) и для ООП",
+                text_kz: "«[ТАҚЫРЫП]» тақырыбы бойынша оқушылардың қажеттіліктеріне қарай 3 деңгейлі тапсырма құрастыр: А деңгейі (қолдауды қажет ететін оқушыларға арналған тірек-сызбалы тапсырма), В деңгейі (орташа деңгей), С деңгейі (дарынды оқушыларға арналған шығармашылық-зерттеу тапсырмасы).",
+                text_ru: "Разработай 3-уровневые задания по теме «[ТЕМА]»: Уровень А (с опорными подсказками для учащихся, нуждающихся в поддержке), Уровень В (базовый уровень применения), Уровень С (творческо-исследовательское задание для одаренных учеников)."
+            },
+            {
+                tag_kz: "Кері байланыс • Ата-ана",
+                tag_ru: "Обратная связь • Родители",
+                title_kz: "Ата-аналарға сыпайы педагогикалық кері байланыс",
+                title_ru: "Конструктивная обратная связь для родителей",
+                text_kz: "Сынып жетекшісі ретінде ата-анаға оқушының тоқсандық үлгерімі туралы мейірімді, қолдаушы және кәсіби түрде хабарлама мәтінін жаз. Алдымен оқушының жетістіктерін атап өт, содан кейін [ПӘН] пәні бойынша жақсартуды қажет ететін тұстарын жұмсақ жеткізіп, үйде қолдау көрсету бойынша 2 нақты кеңес бер.",
+                text_ru: "Напиши от лица классного руководителя доброжелательное, поддерживающее и профессиональное сообщение родителю об успеваемости ученика. Сначала отметь сильные стороны ребенка, затем деликатно укажи на зоны роста по предмету [ПРЕДМЕТ] и дай 2 конкретные рекомендации."
+            }
+        ];
+
+        // Initialize Icons & Prompts on Load
+        window.onload = function() {
+            lucide.createIcons();
+            renderPrompts();
+            updateTexts();
+            selectQMJOrder(selectedQMJOrder, false);
+            updateTextbookOptions('qmj');
+            updateTextbookOptions('bjb');
+            updateTextbookOptions('exp');
+        };
+
+        // Toast Notification Helper
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            if (!toast || !toastMsg) return;
+            toastMsg.textContent = message;
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            lucide.createIcons();
+            clearTimeout(window.__toastTimer);
+            window.__toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('flex');
+            }, 3000);
+        }
+
+        // Tab Navigation Helper
+        function switchTab(tabName) {
+            const tabs = ['qmj', 'bjb', 'class', 'prompts'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const sec = document.getElementById(`section-${t}`);
+                if (btn) {
+                    if (t === tabName) {
+                        btn.className = "tab-active flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all";
+                    } else {
+                        btn.className = "flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all";
+                    }
+                }
+                if (sec) {
+                    if (t === tabName) {
+                        sec.classList.remove('hidden');
+                    } else {
+                        sec.classList.add('hidden');
+                    }
+                }
+            });
+            lucide.createIcons();
+        }
+
+        // Update Localized Texts and Placeholders
+        function updateTexts() {
+            const dict = i18n[currentLang] || i18n.kz;
+            document.documentElement.lang = currentLang === 'kz' ? 'kk' : 'ru';
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key] !== undefined) {
+                    el.textContent = dict[key];
+                }
+            });
+
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (dict[key] !== undefined) {
+                    el.placeholder = dict[key];
+                }
+            });
+        }
+
+        // Fill Sample Data for QMJ
+        function fillSampleQMJ() {
+            if (currentLang === 'kz') {
+                document.getElementById('qmj-subject').value = "Информатика";
+                document.getElementById('qmj-grade').value = "8";
+                document.getElementById('qmj-publisher').value = "Арман-ПВ";
+                updateTextbookOptions('qmj');
+                document.getElementById('qmj-teacher').value = "Ахметова Айгүл Серікқызы";
+                document.getElementById('qmj-section').value = "Жасанды интеллект және цифрлық технологиялар";
+                document.getElementById('qmj-topic').value = "Нейрондық желілердің жұмыс істеу принципі";
+                document.getElementById('qmj-objective').value = "8.3.1.2 жасанды интеллекттің қолданылу салаларын сипаттау";
+            } else {
+                document.getElementById('qmj-subject').value = "Информатика";
+                document.getElementById('qmj-grade').value = "8";
+                document.getElementById('qmj-publisher').value = "Арман-ПВ";
+                updateTextbookOptions('qmj');
+                document.getElementById('qmj-teacher').value = "Ахметова Айгуль Сериковна";
+                document.getElementById('qmj-section').value = "Искусственный интеллект и цифровые технологии";
+                document.getElementById('qmj-topic').value = "Принцип работы нейронных сетей";
+                document.getElementById('qmj-objective').value = "8.3.1.2 описывать области применения искусственного интеллекта";
+            }
+            generateQMJ();
+        }
+
+        // Fill Sample Data for BJB / TJB (Order №130 with changes from 15.07.2026)
+        function fillSampleBJB() {
+            if (currentLang === 'kz') {
+                document.getElementById('bjb-type').value = "БЖБ / СОР";
+                document.getElementById('bjb-score').value = 10;
+                document.getElementById('bjb-time').value = 20;
+                document.getElementById('bjb-quarter').value = "2";
+                document.getElementById('bjb-subject').value = "Қазақстан тарихы";
+                document.getElementById('bjb-grade').value = "8";
+                document.getElementById('bjb-publisher').value = "Атамұра";
+                updateTextbookOptions('bjb');
+                document.getElementById('bjb-topic').value = "Алаш қозғалысы және қазақ зиялыларының қоғамдық-саяси қызметі";
+                document.getElementById('bjb-level').value = "apply";
+            } else {
+                document.getElementById('bjb-type').value = "БЖБ / СОР";
+                document.getElementById('bjb-score').value = 10;
+                document.getElementById('bjb-time').value = 20;
+                document.getElementById('bjb-quarter').value = "2";
+                document.getElementById('bjb-subject').value = "Қазақстан тарихы";
+                document.getElementById('bjb-grade').value = "8";
+                document.getElementById('bjb-publisher').value = "Атамұра";
+                updateTextbookOptions('bjb');
+                document.getElementById('bjb-topic').value = "Движение Алаш и общественно-политическая деятельность казахской интеллигенции";
+                document.getElementById('bjb-level').value = "apply";
+            }
+            generateBJB();
+        }
+
+        // Select QMJ Order (110, 472, or 130)
+        function selectQMJOrder(orderCode, autoRegenerate = true) {
+            selectedQMJOrder = orderCode;
+            ['110', '472', '130'].forEach(code => {
+                const btn = document.getElementById(`order-btn-${code}`);
+                if (!btn) return;
+                if (code === orderCode) {
+                    btn.className = "py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center bg-indigo-600 text-white border-indigo-600 shadow-sm";
+                } else {
+                    btn.className = "py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center bg-white text-slate-700 border-slate-300 hover:bg-slate-50";
+                }
+            });
+
+            const badge = document.getElementById('order-info-badge');
+            if (badge) {
+                badge.textContent = i18n[currentLang][`order_desc_${orderCode}`];
+            }
+
+            const heading = document.getElementById('qmj-result-heading');
+            if (heading) {
+                heading.textContent = currentLang === 'kz'
+                    ? `Дайын ҚМЖ құжаты (№${orderCode} бұйрық негізінде)`
+                    : `Готовый документ КСП (на основе Приказа №${orderCode})`;
+            }
+
+            // Re-generate automatically if topic is already entered
+            const topicVal = document.getElementById('qmj-topic')?.value.trim();
+            if (autoRegenerate && topicVal) {
+                generateQMJ();
+            }
+        }
+
+        // Language Switcher Function
+        function setLanguage(lang) {
+            currentLang = lang;
+            const btnKz = document.getElementById('btn-kz');
+            const btnRu = document.getElementById('btn-ru');
+
+            if (lang === 'kz') {
+                btnKz.className = "px-4 py-1.5 rounded-lg text-sm font-bold transition-all bg-white text-indigo-600 shadow-sm";
+                btnRu.className = "px-4 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 transition-all";
+            } else {
+                btnRu.className = "px-4 py-1.5 rounded-lg text-sm font-bold transition-all bg-white text-indigo-600 shadow-sm";
+                btnKz.className = "px-4 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 transition-all";
+            }
+
+            updateTexts();
+            selectQMJOrder(selectedQMJOrder, true);
+            renderPrompts();
+            updateTextbookOptions('qmj');
+            updateTextbookOptions('bjb');
+            updateTextbookOptions('exp');
+        }
+        // Generate QMJ Dynamically Based on Selected Order (№110, №472, or №130)
+        function generateQMJ() {
+            const subject = document.getElementById('qmj-subject').value.trim() || (currentLang === 'kz' ? "Жалпы пән" : "Общий предмет");
+            const grade = document.getElementById('qmj-grade').value;
+            const publisher = document.getElementById('qmj-publisher').value;
+            const selectedBook = document.getElementById('qmj-book').value;
+            const teacher = document.getElementById('qmj-teacher').value.trim() || (currentLang === 'kz' ? "Педагог" : "Педагог");
+            const section = document.getElementById('qmj-section').value.trim() || (currentLang === 'kz' ? "Жалпы бөлім" : "Общий раздел");
+            const topic = document.getElementById('qmj-topic').value.trim();
+            const objective = document.getElementById('qmj-objective').value.trim() || (currentLang === 'kz' ? "Оқу бағдарламасына сәйкес оқу мақсаты" : "Цель обучения согласно программе");
+            const today = new Date().toLocaleDateString(currentLang === 'kz' ? 'kk-KZ' : 'ru-RU');
+
+            if (!topic) {
+                showToast(i18n[currentLang].toast_empty_topic);
+                return;
+            }
+
+            const out = document.getElementById('qmj-output-area');
+
+            // 1. ORDER №110 TEMPLATE (Педагогтің кәсіби және цифрлық құзыреттілігі, АКТ, функционалдық сауаттылық, саралау)
+            if (selectedQMJOrder === '110') {
+                if (currentLang === 'kz') {
+                    out.innerHTML = `
+                        <div class="border border-slate-300 rounded-xl overflow-hidden bg-white">
+                            <div class="bg-indigo-600 text-white px-4 py-3 border-b border-slate-300 text-center">
+                                <p class="font-bold uppercase text-xs tracking-wider">Қысқа мерзімді сабақ жоспары (ҚМЖ)</p>
+                                <p class="text-[11px] text-indigo-100 mt-0.5">ҚР Оқу-ағарту министрінің №110 бұйрығы негізінде (Педагогтің кәсіби стандарты және цифрлық құзыреттілігі)</p>
+                            </div>
+                            <table class="w-full border-collapse text-xs sm:text-sm">
+                                <tbody>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 w-1/3 border-r border-slate-200">Бөлім / Педагог:</td><td class="p-2.5">${section} • <strong>${teacher}</strong></td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Күні / Пәні / Сынып:</td><td class="p-2.5">${today} | <strong>${subject}</strong> | <strong>${grade}-сынып</strong></td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Оқулық / Баспа (okulyk.kz):</td><td class="p-2.5 text-sky-900 font-medium">${selectedBook}</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Сабақтың тақырыбы:</td><td class="p-2.5 font-bold text-indigo-900">${topic}</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Оқу және сабақ мақсаты:</td><td class="p-2.5"><strong>ОМ:</strong> ${objective}<br><strong>Сабақ мақсаты:</strong> «${topic}» тақырыбын цифрлық ресурстар, АКТ және функционалдық сауаттылық тапсырмалары арқылы меңгеру.</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-indigo-50/70 border-r border-slate-200 text-indigo-950">Цифрлық ресурстар және АКТ (№110):</td><td class="p-2.5">• Электрондық оқулық: <strong>okulyk.kz</strong> («${publisher}» баспасы)<br>• Интерактивті сервистер: Quizizz / LearningApps / Wordwall, цифрлық карточкалар.</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="bg-slate-100 px-4 py-2 font-bold text-xs uppercase text-slate-700 border-y border-slate-300">Сабақтың барысы (№110 бұйрық құрылымы)</div>
+                            <table class="w-full border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-300 text-left">
+                                        <th class="p-2.5 border-r border-slate-200 w-1/5">Кезең / Уақыт</th>
+                                        <th class="p-2.5 border-r border-slate-200 w-2/5">Педагогтің әрекеті және цифрлық әдістер</th>
+                                        <th class="p-2.5 border-r border-slate-200 w-1/5">Оқушының әрекеті</th>
+                                        <th class="p-2.5 w-1/5">Бағалау / Саралау</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="border-b border-slate-200 align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">1. Ұйымдастыру және цифрлық мотивация<br><span class="text-slate-500 font-normal">(7 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200">Ынтымақтастық ортасын құру. «${topic}» бойынша интерактивті сауалнама/викторина, сабақ мақсатын бірлесіп анықтау.</td>
+                                        <td class="p-2.5 border-r border-slate-200">Интерактивті сұрақтарға жауап береді, болжам жасайды, мақсатты айқындайды.</td>
+                                        <td class="p-2.5">ҚБ: Мадақтау, «Бас бармақ» әдісі.</td>
+                                    </tr>
+                                    <tr class="border-b border-slate-200 align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">2. Негізгі бөлім: Функционалдық сауаттылық<br><span class="text-slate-500 font-normal">(30 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200"><strong>1-тапсырма (Эл. оқулықпен жұмыс):</strong> okulyk.kz («${publisher}») параграфын талдау және менталды карта құру.<br><strong>2-тапсырма (Функционалдық сауаттылық):</strong> «${topic}» бойынша практикалық кейсті шешу.</td>
+                                        <td class="p-2.5 border-r border-slate-200">Оқулық материалын зерделейді, топта практикалық кейсті шешіп қорғайды.</td>
+                                        <td class="p-2.5"><strong>Саралау (ЕББҚ):</strong><br>- ЕББҚ оқушыларға тірек-сызбалар беріледі;<br>- Қабілетті оқушыларға шығармашылық кейс.</td>
+                                    </tr>
+                                    <tr class="align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">3. Рефлексия және кері байланыс<br><span class="text-slate-500 font-normal">(8 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200">«3-2-1» цифрлық рефлексиясы (QR-код / карточка арқылы). «${publisher}» оқулығы бойынша үй тапсырмасын түсіндіру.</td>
+                                        <td class="p-2.5 border-r border-slate-200">Сабақтың 3 негізгі түйінін жазады, өзін-өзі бағалайды.</td>
+                                        <td class="p-2.5">10 балдық шкала бойынша кері байланыс.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } else {
+                    out.innerHTML = `
+                        <div class="border border-slate-300 rounded-xl overflow-hidden bg-white">
+                            <div class="bg-indigo-600 text-white px-4 py-3 border-b border-slate-300 text-center">
+                                <p class="font-bold uppercase text-xs tracking-wider">Краткосрочный план урока (КСП)</p>
+                                <p class="text-[11px] text-indigo-100 mt-0.5">На основе Приказа МП РК №110 (Профессиональный стандарт и цифровая компетентность педагога)</p>
+                            </div>
+                            <table class="w-full border-collapse text-xs sm:text-sm">
+                                <tbody>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 w-1/3 border-r border-slate-200">Раздел / Педагог:</td><td class="p-2.5">${section} • <strong>${teacher}</strong></td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Дата / Предмет / Класс:</td><td class="p-2.5">${today} | <strong>${subject}</strong> | <strong>${grade} класс</strong></td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Учебник / Издательство (okulyk.kz):</td><td class="p-2.5 text-sky-900 font-medium">${selectedBook}</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Тема урока:</td><td class="p-2.5 font-bold text-indigo-900">${topic}</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Цели обучения и урока:</td><td class="p-2.5"><strong>ЦО:</strong> ${objective}<br><strong>Цель урока:</strong> Освоение темы «${topic}» с использованием цифровых ресурсов, ИКТ и заданий на развитие функциональной грамотности.</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-indigo-50/70 border-r border-slate-200 text-indigo-950">Цифровые ресурсы и ИКТ (№110):</td><td class="p-2.5">• Электронный учебник: <strong>okulyk.kz</strong> (изд. «${publisher}»)<br>• Интерактивные сервисы: Quizizz / LearningApps / Wordwall, цифровые карточки.</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="bg-slate-100 px-4 py-2 font-bold text-xs uppercase text-slate-700 border-y border-slate-300">Ход урока (структура по Приказу №110)</div>
+                            <table class="w-full border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-300 text-left">
+                                        <th class="p-2.5 border-r border-slate-200 w-1/5">Этап / Время</th>
+                                        <th class="p-2.5 border-r border-slate-200 w-2/5">Деятельность педагога и цифровые методы</th>
+                                        <th class="p-2.5 border-r border-slate-200 w-1/5">Деятельность ученика</th>
+                                        <th class="p-2.5 w-1/5">Оценивание / Дифференциация</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="border-b border-slate-200 align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">1. Организация и цифровая мотивация<br><span class="text-slate-500 font-normal">(7 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200">Создание коллаборативной среды. Интерактивный опрос/викторина по теме «${topic}», совместное определение целей урока.</td>
+                                        <td class="p-2.5 border-r border-slate-200">Отвечают на интерактивные вопросы, выдвигают гипотезы, формулируют цель.</td>
+                                        <td class="p-2.5">ФО: Словесная похвала, прием «Большой палец».</td>
+                                    </tr>
+                                    <tr class="border-b border-slate-200 align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">2. Основная часть: Функциональная грамотность<br><span class="text-slate-500 font-normal">(30 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200"><strong>Задание 1 (Работа с эл. учебником):</strong> Анализ параграфа на okulyk.kz («${publisher}») и создание ментальной карты.<br><strong>Задание 2 (Функциональная грамотность):</strong> Решение практико-ориентированного кейса по теме «${topic}».</td>
+                                        <td class="p-2.5 border-r border-slate-200">Изучают материал учебника, решают практический кейс в группах, защищают решение.</td>
+                                        <td class="p-2.5"><strong>Дифференциация (ООП):</strong><br>- Учащимся с ООП предоставляются опорные схемы;<br>- Сильным учащимся — творческий кейс.</td>
+                                    </tr>
+                                    <tr class="align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">3. Рефлексия и обратная связь<br><span class="text-slate-500 font-normal">(8 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200">Цифровая рефлексия «3-2-1» (через QR-код / карточку). Пояснение домашнего задания по учебнику «${publisher}».</td>
+                                        <td class="p-2.5 border-r border-slate-200">Фиксируют 3 ключевых вывода урока, проводят самооценку.</td>
+                                        <td class="p-2.5">Обратная связь по 10-балльной шкале.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            // 2. ORDER №472 TEMPLATE (Критериалды бағалау қағидалары, дескрипторлар мен балл шкаласы)
+            if (selectedQMJOrder === '472') {
+                if (currentLang === 'kz') {
+                    out.innerHTML = `
+                        <div class="border border-slate-300 rounded-xl overflow-hidden bg-white">
+                            <div class="bg-emerald-700 text-white px-4 py-3 border-b border-slate-300 text-center">
+                                <p class="font-bold uppercase text-xs tracking-wider">Критериалды бағалауға негізделген ҚМЖ</p>
+                                <p class="text-[11px] text-emerald-100 mt-0.5">ҚР Оқу-ағарту министрінің №472 бұйрығы негізінде (Критериалды бағалау қағидалары)</p>
+                            </div>
+                            <table class="w-full border-collapse text-xs sm:text-sm">
+                                <tbody>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 w-1/3 border-r border-slate-200">Бөлім / Педагог:</td><td class="p-2.5">${section} • <strong>${teacher}</strong></td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Күні / Пәні / Сынып:</td><td class="p-2.5">${today} | <strong>${subject}</strong> | <strong>${grade}-сынып</strong></td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Оқулық / Баспа (okulyk.kz):</td><td class="p-2.5 text-emerald-900 font-medium">${selectedBook}</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Сабақтың тақырыбы:</td><td class="p-2.5 font-bold text-slate-900">${topic}</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Оқу мақсаты:</td><td class="p-2.5">${objective}</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-emerald-50 border-r border-slate-200 text-emerald-950">Бағалау критерийлері (№472):</td><td class="p-2.5">1. «${topic}» тақырыбының негізгі ұғымдарын анықтайды (Білу және түсіну);<br>2. Оқулық («${publisher}») тапсырмаларында теориялық білімін қолданады (Қолдану);<br>3. Себеп-салдарлық байланыстарды талдап, қорытынды жасайды (Талдау).</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="bg-slate-100 px-4 py-2 font-bold text-xs uppercase text-slate-700 border-y border-slate-300">Сабақ кезеңдері және қалыптастырушы бағалау (10 балдық жүйе)</div>
+                            <table class="w-full border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-300 text-left">
+                                        <th class="p-2.5 border-r border-slate-200 w-1/6">Кезең</th>
+                                        <th class="p-2.5 border-r border-slate-200 w-2/6">ҚБ тапсырмалары (Педагог/Оқушы)</th>
+                                        <th class="p-2.5 border-r border-slate-200 w-2/6">Дескрипторлар (Білім алушы)</th>
+                                        <th class="p-2.5 text-center w-1/6">Балл</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="border-b border-slate-200 align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">Сабақтың басы<br><span class="text-slate-500 font-normal">(7 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200"><strong>1-тапсырма (Білу және түсіну):</strong> «${topic}» бойынша сәйкестендіру тесті мен терминдерді анықтау.</td>
+                                        <td class="p-2.5 border-r border-slate-200">- Негізгі 2 терминді дұрыс анықтайды (1 балл);<br>- Ұғымдардың мағынасын сәйкестендіреді (1 балл).</td>
+                                        <td class="p-2.5 text-center font-bold text-emerald-700">2 балл</td>
+                                    </tr>
+                                    <tr class="border-b border-slate-200 align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">Сабақтың ортасы<br><span class="text-slate-500 font-normal">(30 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200"><strong>2-тапсырма (Қолдану):</strong> «${publisher}» оқулығы негізінде практикалық есеп/жаттығу орындау.<br><strong>3-тапсырма (Талдау):</strong> Салыстырмалы кесте толтыру және дәлел келтіру.</td>
+                                        <td class="p-2.5 border-r border-slate-200">- Алгоритм/ережені дұрыс қолданады (2 балл);<br>- Кемінде 2 нақты дәлел келтіреді (2 балл);<br>- Дұрыс қорытынды тұжырым жасайды (2 балл).</td>
+                                        <td class="p-2.5 text-center font-bold text-emerald-700">6 балл</td>
+                                    </tr>
+                                    <tr class="align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">Сабақтың соңы<br><span class="text-slate-500 font-normal">(8 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200"><strong>Қорытынды тексеру (Бағалау):</strong> Мини-тест және дескрипторлар бойынша өзін-өзі бағалау, кері байланыс.</td>
+                                        <td class="p-2.5 border-r border-slate-200">- Бақылау сұрақтарына дұрыс жауап береді (2 балл).</td>
+                                        <td class="p-2.5 text-center font-bold text-emerald-700">2 балл<br><span class="text-[10px] text-slate-500 font-normal">(Барлығы: 10 б)</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } else {
+                    out.innerHTML = `
+                        <div class="border border-slate-300 rounded-xl overflow-hidden bg-white">
+                            <div class="bg-emerald-700 text-white px-4 py-3 border-b border-slate-300 text-center">
+                                <p class="font-bold uppercase text-xs tracking-wider">КСП на основе критериального оценивания</p>
+                                <p class="text-[11px] text-emerald-100 mt-0.5">На основе Приказа МП РК №472 (Правила проведения текущего контроля и оценивания)</p>
+                            </div>
+                            <table class="w-full border-collapse text-xs sm:text-sm">
+                                <tbody>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 w-1/3 border-r border-slate-200">Раздел / Педагог:</td><td class="p-2.5">${section} • <strong>${teacher}</strong></td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Дата / Предмет / Класс:</td><td class="p-2.5">${today} | <strong>${subject}</strong> | <strong>${grade} класс</strong></td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Учебник / Издательство (okulyk.kz):</td><td class="p-2.5 text-emerald-900 font-medium">${selectedBook}</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Тема урока:</td><td class="p-2.5 font-bold text-slate-900">${topic}</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Цель обучения:</td><td class="p-2.5">${objective}</td></tr>
+                                    <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-emerald-50 border-r border-slate-200 text-emerald-950">Критерии оценивания (№472):</td><td class="p-2.5">1. Определяет базовые понятия темы «${topic}» (Знание и понимание);<br>2. Применяет теоретические знания в заданиях учебника «${publisher}» (Применение);<br>3. Анализирует причинно-следственные связи и делает вывод (Анализ).</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="bg-slate-100 px-4 py-2 font-bold text-xs uppercase text-slate-700 border-y border-slate-300">Этапы урока и формативное оценивание (10-балльная шкала)</div>
+                            <table class="w-full border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-300 text-left">
+                                        <th class="p-2.5 border-r border-slate-200 w-1/6">Этап</th>
+                                        <th class="p-2.5 border-r border-slate-200 w-2/6">Задания ФО (Педагог/Ученик)</th>
+                                        <th class="p-2.5 border-r border-slate-200 w-2/6">Дескрипторы (Обучающийся)</th>
+                                        <th class="p-2.5 text-center w-1/6">Баллы</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="border-b border-slate-200 align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">Начало урока<br><span class="text-slate-500 font-normal">(7 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200"><strong>Задание 1 (Знание и понимание):</strong> Тест на соответствие и определение ключевых терминов по теме «${topic}».</td>
+                                        <td class="p-2.5 border-r border-slate-200">- Верно определяет 2 ключевых термина (1 балл);<br>- Устанавливает соответствие понятий (1 балл).</td>
+                                        <td class="p-2.5 text-center font-bold text-emerald-700">2 балла</td>
+                                    </tr>
+                                    <tr class="border-b border-slate-200 align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">Середина урока<br><span class="text-slate-500 font-normal">(30 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200"><strong>Задание 2 (Применение):</strong> Выполнение практического задания по учебнику «${publisher}».<br><strong>Задание 3 (Анализ):</strong> Заполнение сравнительной таблицы и аргументация.</td>
+                                        <td class="p-2.5 border-r border-slate-200">- Правильно применяет правило/алгоритм (2 балла);<br>- Приводит не менее 2 аргументов (2 балла);<br>- Формулирует логический вывод (2 балла).</td>
+                                        <td class="p-2.5 text-center font-bold text-emerald-700">6 баллов</td>
+                                    </tr>
+                                    <tr class="align-top">
+                                        <td class="p-2.5 font-semibold border-r border-slate-200">Конец урока<br><span class="text-slate-500 font-normal">(8 мин)</span></td>
+                                        <td class="p-2.5 border-r border-slate-200"><strong>Итоговая проверка (Оценка):</strong> Мини-тест, самооценка по дескрипторам и обратная связь.</td>
+                                        <td class="p-2.5 border-r border-slate-200">- Верно отвечает на контрольные вопросы (2 балла).</td>
+                                        <td class="p-2.5 text-center font-bold text-emerald-700">2 балла<br><span class="text-[10px] text-slate-500 font-normal">(Итого: 10 б)</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            // 3. ORDER №130 STANDARD TEMPLATE
+            if (currentLang === 'kz') {
+                out.innerHTML = `
+                    <div class="border border-slate-300 rounded-xl overflow-hidden bg-white">
+                        <div class="bg-indigo-50 px-4 py-3 border-b border-slate-300 text-center">
+                            <p class="font-bold text-slate-900 uppercase text-xs tracking-wider">Қысқа мерзімді сабақ жоспары (ҚМЖ — №130 бұйрық)</p>
+                        </div>
+                        <table class="w-full border-collapse text-xs sm:text-sm">
+                            <tbody>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 w-1/3 border-r border-slate-200">Бөлім:</td><td class="p-2.5">${section}</td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Педагогтің аты-жөні:</td><td class="p-2.5">${teacher}</td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Күні / Пәні / Сынып:</td><td class="p-2.5">${today} | <strong>${subject}</strong> | <strong>${grade}-сынып</strong></td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Оқулық / Баспа (okulyk.kz):</td><td class="p-2.5 text-sky-900 font-medium">${selectedBook}</td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Сабақтың тақырыбы:</td><td class="p-2.5 font-bold text-indigo-900">${topic}</td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Оқу мақсаттары:</td><td class="p-2.5">${objective}</td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Сабақтың мақсаты:</td><td class="p-2.5">• Барлық оқушылар: «${topic}» тақырыбының негізгі терминдері мен заңдылықтарын анықтайды.<br>• Көпшілігі: тәжірибелік тапсырмаларда тақырып бойынша білімдерін қолданады.<br>• Кейбіреулері: нақты өмірлік жағдаяттарды талдап, өзіндік шешім ұсынады.</td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="bg-slate-100 px-4 py-2 font-bold text-xs uppercase text-slate-700 border-y border-slate-300">Сабақтың барысы</div>
+                        <table class="w-full border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-300 text-left">
+                                    <th class="p-2.5 border-r border-slate-200 w-1/5">Кезең / Уақыт</th>
+                                    <th class="p-2.5 border-r border-slate-200 w-2/5">Педагогтің әрекеті</th>
+                                    <th class="p-2.5 border-r border-slate-200 w-1/5">Оқушының әрекеті</th>
+                                    <th class="p-2.5 w-1/5">Бағалау / Ресурстар</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-slate-200 align-top">
+                                    <td class="p-2.5 font-semibold border-r border-slate-200">Сабақтың басы<br><span class="text-slate-500 font-normal">(7 мин)</span></td>
+                                    <td class="p-2.5 border-r border-slate-200">Ұйымдастыру кезеңі. Психологиялық ахуал орнату. «Миға шабуыл» әдісі арқылы «${topic}» тақырыбына байланысты проблемалық сұрақ қояды, сабақ мақсатымен таныстырады.</td>
+                                    <td class="p-2.5 border-r border-slate-200">Сұрақтарға жауап береді, өз болжамдарын ұсынады, сабақ мақсатын айқындайды.</td>
+                                    <td class="p-2.5">ҚБ: «Мадақтау» әдісі. Электрондық оқулық (okulyk.kz, «${publisher}» баспасы), презентация.</td>
+                                </tr>
+                                <tr class="border-b border-slate-200 align-top">
+                                    <td class="p-2.5 font-semibold border-r border-slate-200">Сабақтың ортасы<br><span class="text-slate-500 font-normal">(30 мин)</span></td>
+                                    <td class="p-2.5 border-r border-slate-200"><strong>1-тапсырма (Топтық жұмыс):</strong> Оқулық («${publisher}») мәтіні негізінде «${topic}» бойынша постер/кластер қорғау.<br><strong>2-тапсырма (Жеке жұмыс):</strong> Функционалдық сауаттылыққа негізделген тәжірибелік тапсырма орындау.</td>
+                                    <td class="p-2.5 border-r border-slate-200">Топта бірлесіп оқулық материалын талдайды, жеке деңгейлік тапсырмаларды орындайды.</td>
+                                    <td class="p-2.5"><strong>Дескриптор:</strong><br>- негізгі ұғымды анықтайды (1 б);<br>- мысал келтіреді (2 б);<br>- қорытынды жасайды (2 б).</td>
+                                </tr>
+                                <tr class="align-top">
+                                    <td class="p-2.5 font-semibold border-r border-slate-200">Сабақтың соңы<br><span class="text-slate-500 font-normal">(8 мин)</span></td>
+                                    <td class="p-2.5 border-r border-slate-200">Сабақты бекіту. «Білім қоржыны» рефлексиясын ұйымдастырады. Оқулық бойынша үй тапсырмасын түсіндіреді.</td>
+                                    <td class="p-2.5 border-r border-slate-200">Сабақта алған білімдерін қорытындылайды, кері байланыс береді.</td>
+                                    <td class="p-2.5">1–10 балдық жүйе бойынша формативті бағалау.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                out.innerHTML = `
+                    <div class="border border-slate-300 rounded-xl overflow-hidden bg-white">
+                        <div class="bg-indigo-50 px-4 py-3 border-b border-slate-300 text-center">
+                            <p class="font-bold text-slate-900 uppercase text-xs tracking-wider">Краткосрочный план урока (КСП — Приказ №130)</p>
+                        </div>
+                        <table class="w-full border-collapse text-xs sm:text-sm">
+                            <tbody>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 w-1/3 border-r border-slate-200">Раздел:</td><td class="p-2.5">${section}</td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">ФИО педагога:</td><td class="p-2.5">${teacher}</td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Дата / Предмет / Класс:</td><td class="p-2.5">${today} | <strong>${subject}</strong> | <strong>${grade} класс</strong></td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Учебник / Издательство (okulyk.kz):</td><td class="p-2.5 text-sky-900 font-medium">${selectedBook}</td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Тема урока:</td><td class="p-2.5 font-bold text-indigo-900">${topic}</td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Цели обучения:</td><td class="p-2.5">${objective}</td></tr>
+                                <tr class="border-b border-slate-200"><td class="p-2.5 font-semibold bg-slate-50 border-r border-slate-200">Цели урока:</td><td class="p-2.5">• Все учащиеся: определяют ключевые понятия и закономерности темы «${topic}».<br>• Большинство: применяют полученные знания при выполнении практических заданий.<br>• Некоторые: анализируют реальные кейсы и предлагают собственные решения.</td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="bg-slate-100 px-4 py-2 font-bold text-xs uppercase text-slate-700 border-y border-slate-300">Ход урока</div>
+                        <table class="w-full border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-300 text-left">
+                                    <th class="p-2.5 border-r border-slate-200 w-1/5">Этап / Время</th>
+                                    <th class="p-2.5 border-r border-slate-200 w-2/5">Действия педагога</th>
+                                    <th class="p-2.5 border-r border-slate-200 w-1/5">Действия ученика</th>
+                                    <th class="p-2.5 w-1/5">Оценивание / Ресурсы</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-slate-200 align-top">
+                                    <td class="p-2.5 font-semibold border-r border-slate-200">Начало урока<br><span class="text-slate-500 font-normal">(7 мин)</span></td>
+                                    <td class="p-2.5 border-r border-slate-200">Организационный момент. Создание коллаборативной среды. Прием «Мозговой штурм» по теме «${topic}», совместное целеполагание.</td>
+                                    <td class="p-2.5 border-r border-slate-200">Отвечают на проблемные вопросы, выдвигают гипотезы, формулируют цели урока.</td>
+                                    <td class="p-2.5">ФО: Словесная похвала. Электронный учебник (okulyk.kz, изд. «${publisher}»), слайды.</td>
+                                </tr>
+                                <tr class="border-b border-slate-200 align-top">
+                                    <td class="p-2.5 font-semibold border-r border-slate-200">Середина урока<br><span class="text-slate-500 font-normal">(30 мин)</span></td>
+                                    <td class="p-2.5 border-r border-slate-200"><strong>Задание 1 (Групповая работа):</strong> Работа с материалом учебника («${publisher}») и защита кластера по теме «${topic}».<br><strong>Задание 2 (Индивидуальная работа):</strong> Выполнение практико-ориентированного задания на функциональную грамотность.</td>
+                                    <td class="p-2.5 border-r border-slate-200">Анализируют текст учебника в группе, выполняют разноуровневые задания индивидуально.</td>
+                                    <td class="p-2.5"><strong>Дескриптор:</strong><br>- определяет ключевой термин (1 б);<br>- приводит аргументы/примеры (2 б);<br>- формулирует вывод (2 б).</td>
+                                </tr>
+                                <tr class="align-top">
+                                    <td class="p-2.5 font-semibold border-r border-slate-200">Конец урока<br><span class="text-slate-500 font-normal">(8 мин)</span></td>
+                                    <td class="p-2.5 border-r border-slate-200">Закрепление урока. Организует рефлексию «Корзина знаний». Поясняет домашнее задание по учебнику.</td>
+                                    <td class="p-2.5 border-r border-slate-200">Подводят итоги усвоенного на уроке, дают обратную связь.</td>
+                                    <td class="p-2.5">Формативное оценивание по 1–10-балльной системе.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+        }
+
+        // Sync suggested time limit when switching БЖБ / ТЖБ
+        function syncAssessmentDuration() {
+            const typeVal = document.getElementById('bjb-type')?.value || '';
+            const timeEl = document.getElementById('bjb-time');
+            if (!timeEl) return;
+            if (typeVal.includes('ТЖБ') || typeVal.includes('СОЧ')) {
+                timeEl.value = 40;
+            } else {
+                timeEl.value = 20;
+            }
+            if (loadedKTP.topics.length > 0 || document.getElementById('bjb-topic')?.value.trim()) {
+                generateBJB();
+            }
+        }
+
+        // Extract plain text from Word (.doc / .docx) or plain text files
+        async function extractTextFromWordOrText(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const lowerName = file.name.toLowerCase();
+
+            // .docx is a ZIP archive containing word/document.xml
+            if (lowerName.endsWith('.docx')) {
+                try {
+                    const zipWorkbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+                    // Fallback XML text extraction if JSZip/XML entries are accessible
+                    if (zipWorkbook && zipWorkbook.Strings) {
+                        return zipWorkbook.Strings.map(s => s.t || '').join('\n');
+                    }
+                } catch (_) {
+                    // Continue with binary text fallback below
+                }
+            }
+
+            // Decode bytes and clean XML/HTML tags if present (works for .doc, .docx XML streams, .rtf, .txt)
+            const decoder = new TextDecoder('utf-8', { fatal: false });
+            let raw = decoder.decode(new Uint8Array(arrayBuffer));
+            if (raw.includes('<w:t') || raw.includes('<html') || raw.includes('<body')) {
+                raw = raw.replace(/<\/(w:p|w:tr|p|div|tr|li|h[1-6])>/gi, '\n');
+                raw = raw.replace(/<[^>]+>/g, ' ');
+                raw = raw.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&quot;/gi, '"');
+            }
+            return raw.replace(/[^\p{L}\p{N}\p{P}\s]/gu, ' ');
+        }
+
+        // Extract text from PDF using PDF.js
+        async function extractTextFromPDF(file) {
+            if (!window.pdfjsLib) {
+                throw new Error('PDF.js not loaded');
+            }
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const pagesText = [];
+
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageStr = textContent.items.map(item => item.str).join(' ');
+                pagesText.push(pageStr);
+            }
+            return pagesText.join('\n');
+        }
+
+        // Parse extracted KTP lines into clean topics & sections
+        function parseKTPContent(rawText, rowsFromExcel = null) {
+            const noiseRegex = /^(№|n|no|р\/с|бөлім|бөлімі|тақырып|тақырыбы|сағат|сағат саны|оқу мақсаты|мерзімі|ескерту|раздел|тема|часы|кол-во часов|цели обучения|дата|итого|жиынтық|бжб|тжб|сор|соч)$/i;
+            const candidates = [];
+
+            if (Array.isArray(rowsFromExcel) && rowsFromExcel.length > 0) {
+                rowsFromExcel.forEach(row => {
+                    if (!Array.isArray(row)) return;
+                    const cells = row
+                        .map(c => (c !== null && c !== undefined) ? String(c).replace(/\s+/g, ' ').trim() : '')
+                        .filter(Boolean);
+                    if (cells.length === 0) return;
+
+                    // Choose the most descriptive text cell (skip pure numbers and short headers)
+                    const textCell = cells.find(c =>
+                        c.length >= 4 &&
+                        !/^\d+([.,]\d+)?$/.test(c) &&
+                        !noiseRegex.test(c)
+                    );
+                    if (textCell) candidates.push(textCell);
+                });
+            }
+
+            if (candidates.length === 0 && rawText) {
+                const lines = rawText.split(/\r?\n|\s{3,}/);
+                lines.forEach(line => {
+                    const cleaned = line.replace(/\s+/g, ' ').trim().replace(/^\d+[.)]\s*/, '');
+                    if (
+                        cleaned.length >= 5 &&
+                        cleaned.length <= 160 &&
+                        !/^\d+([.,]\d+)?$/.test(cleaned) &&
+                        !noiseRegex.test(cleaned)
+                    ) {
+                        candidates.push(cleaned);
+                    }
+                });
+            }
+
+            // Deduplicate while preserving order
+            const uniqueTopics = [];
+            const seen = new Set();
+            candidates.forEach(item => {
+                const key = item.toLowerCase();
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueTopics.push(item);
+                }
+            });
+
+            // Identify potential sections (shorter/unit-like entries or first items)
+            const sections = uniqueTopics.filter(t =>
+                /бөлім|тарау|модуль|раздел|глава|unit|module/i.test(t)
+            ).slice(0, 4);
+
+            return {
+                topics: uniqueTopics.slice(0, 30),
+                sections
+            };
+        }
+
+        // Handle KTP Upload (Excel, Word, PDF) and Auto-Differentiate BJB / TJB
+        async function handleKTPFileUpload(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            const lowerName = file.name.toLowerCase();
+            let formatLabel = 'Document';
+            let rawText = '';
+            let excelRows = null;
+
+            try {
+                if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') || lowerName.endsWith('.csv')) {
+                    formatLabel = lowerName.endsWith('.csv') ? 'CSV' : 'Excel';
+                    const buffer = await file.arrayBuffer();
+                    const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    excelRows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, blankrows: false });
+                    rawText = excelRows.map(r => r.join(' ')).join('\n');
+                } else if (lowerName.endsWith('.pdf')) {
+                    formatLabel = 'PDF';
+                    rawText = await extractTextFromPDF(file);
+                } else if (lowerName.endsWith('.doc') || lowerName.endsWith('.docx') || lowerName.endsWith('.txt')) {
+                    formatLabel = lowerName.endsWith('.txt') ? 'TXT' : 'Word';
+                    rawText = await extractTextFromWordOrText(file);
+                } else {
+                    showToast(i18n[currentLang].toast_ktp_error);
+                    return;
+                }
+
+                const parsed = parseKTPContent(rawText, excelRows);
+                if (parsed.topics.length === 0) {
+                    showToast(i18n[currentLang].toast_ktp_empty);
+                    return;
+                }
+
+                loadedKTP = {
+                    fileName: file.name,
+                    format: formatLabel,
+                    topics: parsed.topics,
+                    sections: parsed.sections,
+                    rawText
+                };
+
+                // Automatically populate topic input from KTP so BJB/TJB is immediately differentiated
+                const topicInput = document.getElementById('bjb-topic');
+                if (topicInput) {
+                    topicInput.value = parsed.topics[0];
+                }
+
+                renderKTPStatusPanel();
+                generateBJB();
+                showToast(i18n[currentLang].toast_ktp_loaded.replace('{count}', parsed.topics.length));
+            } catch (err) {
+                console.error('KTP parsing error:', err);
+                showToast(i18n[currentLang].toast_ktp_error);
+            } finally {
+                event.target.value = '';
+            }
+        }
+
+        function renderKTPStatusPanel() {
+            const panel = document.getElementById('ktp-status-panel');
+            const badge = document.getElementById('ktp-file-badge');
+            const summary = document.getElementById('ktp-extracted-summary');
+            if (!panel || !badge || !summary) return;
+
+            if (!loadedKTP.fileName || loadedKTP.topics.length === 0) {
+                panel.classList.add('hidden');
+                return;
+            }
+
+            panel.classList.remove('hidden');
+            badge.textContent = i18n[currentLang].ktp_loaded_status
+                .replace('{format}', loadedKTP.format)
+                .replace('{file}', loadedKTP.fileName);
+
+            const secText = loadedKTP.sections.length > 0
+                ? loadedKTP.sections.join(', ')
+                : loadedKTP.topics.slice(0, 2).join(', ');
+
+            summary.textContent = i18n[currentLang].ktp_summary_text
+                .replace('{topicsCount}', loadedKTP.topics.length)
+                .replace('{sectionsList}', secText);
+        }
+        // Generate BJB / TJB (Order №130 of 06.04.2020 with amendments of 15.07.2026 & KTP Auto-Differentiated)
+        function generateBJB() {
+            const type = document.getElementById('bjb-type').value;
+            const isTJB = type.includes('ТЖБ') || type.includes('СОЧ');
+            const score = parseInt(document.getElementById('bjb-score').value) || 10;
+            const timeLimit = parseInt(document.getElementById('bjb-time')?.value) || (isTJB ? 40 : 20);
+            const quarter = document.getElementById('bjb-quarter')?.value || '2';
+            const subject = document.getElementById('bjb-subject').value.trim() || (currentLang === 'kz' ? "Пән" : "Предмет");
+            const grade = document.getElementById('bjb-grade').value;
+            const selectedBook = document.getElementById('bjb-book').value;
+            const topicInputVal = document.getElementById('bjb-topic').value.trim();
+            const topic = topicInputVal || (loadedKTP.topics[0] || '');
+            const levelKey = document.getElementById('bjb-level').value;
+
+            if (!topic) {
+                showToast(i18n[currentLang].toast_empty_topic);
+                return;
+            }
+
+            // Differentiate KTP topics between БЖБ (focused section/unit topics) and ТЖБ (cumulative quarter topics)
+            const ktpPool = loadedKTP.topics.length > 0 ? loadedKTP.topics : [topic];
+            const bjbTopics = ktpPool.slice(0, Math.min(3, ktpPool.length));
+            const tjbTopics = ktpPool.slice(0, Math.min(6, ktpPool.length));
+            const activeTopics = isTJB ? tjbTopics : bjbTopics;
+
+            const d1 = Math.max(1, Math.round(score * 0.3));
+            const d2 = Math.max(1, Math.round(score * 0.4));
+            const d3 = Math.max(1, score - d1 - d2);
+
+            const lowMax = Math.max(1, Math.floor(score * 0.39));
+            const midMin = lowMax + 1;
+            const midMax = Math.max(midMin, Math.floor(score * 0.79));
+            const highMin = Math.min(score, midMax + 1);
+
+            const levelText = {
+                kz: { know: "Білу және түсіну", apply: "Қолдану", high: "Жоғары деңгей дағдылары (талдау, бағалау)" },
+                ru: { know: "Знание и понимание", apply: "Применение", high: "Навыки высокого порядка (анализ, оценка)" }
+            }[currentLang][levelKey];
+
+            const out = document.getElementById('bjb-output-area');
+
+            if (currentLang === 'kz') {
+                const ktpBannerHtml = loadedKTP.fileName
+                    ? `<div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs">
+                        <p class="font-bold text-amber-950 mb-1">КТЖ бойынша автоматты саралау (${loadedKTP.format}: ${loadedKTP.fileName}) — №130 бұйрық (15.07.2026 ж.):</p>
+                        <p class="text-slate-700">${isTJB ? '<strong>ТЖБ (Тоқсандық қорытынды — кеңейтілген блок):</strong>' : '<strong>БЖБ (Бөлім бойынша — тақырыптық блок):</strong>'} ${activeTopics.join(' • ')}</p>
+                       </div>`
+                    : `<div class="bg-indigo-50/70 p-3 rounded-xl border border-indigo-200 text-xs text-indigo-950">
+                        <strong>Нормативтік негіз:</strong> ҚР Білім және ғылым министрінің 2020 жылғы 6 сәуірдегі № 130 бұйрығы (2026 жылғы 15 шілдедегі өзгерістерімен). КТЖ жүктелсе, БЖБ және ТЖБ тапсырмалары осы бұйрыққа сай автоматты сараланады.
+                       </div>`;
+
+                const taskListHtml = isTJB
+                    ? `1. <strong>Бөлім/тақырыптарды кіріктіру (${activeTopics.slice(0, 2).join(', ')}):</strong> Тоқсан ішіндегі негізгі ұғымдар мен заңдылықтарды анықтаңыз.<br>2. <strong>Қолдану және талдау (${activeTopics[activeTopics.length - 1] || topic}):</strong> Берілген жағдаятты талдап, кемінде 2 нақты дәлел келтіріңіз.<br>3. <strong>Жоғары деңгей (№130 бұйрық • 15.07.2026 ж. редакциясы):</strong> Тоқсандық тақырыптар негізінде қорытынды шешім немесе дәлелді тұжырым жазыңыз.`
+                    : `1. <strong>Негізгі ұғымдар (${activeTopics[0] || topic}):</strong> Тақырыпқа қатысты 2 маңызды ерекшелікті/фактіні көрсетіңіз.<br>2. <strong>Практикалық қолдану (${activeTopics[1] || topic}):</strong> Берілген тапсырманың мәнін ашатын 2 дәлел келтіріңіз.<br>3. <strong>Қорытынды және саралау (№130 бұйрық • 15.07.2026 ж.):</strong> Тақырып бойынша өзіндік қорытынды жазыңыз.`;
+
+                out.innerHTML = `
+                    <div class="border border-slate-300 rounded-xl overflow-hidden bg-white">
+                        <div class="bg-emerald-50 px-4 py-3 border-b border-slate-300 flex flex-wrap justify-between items-center gap-2">
+                            <div>
+                                <span class="font-bold text-emerald-950 text-xs uppercase block">${type} • ${quarter}-тоқсан • ${subject} (${grade}-сынып)</span>
+                                <span class="text-[11px] font-medium text-emerald-800">ҚР БҒМ 06.04.2020 ж. № 130 бұйрығы (15.07.2026 ж. өзгерістерімен)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-xs bg-white px-2.5 py-1 rounded-md border border-slate-200 text-slate-700">${timeLimit} мин</span>
+                                <span class="font-bold text-xs bg-white px-2.5 py-1 rounded-md border border-emerald-200 text-emerald-800">Жалпы балл: ${score}</span>
+                            </div>
+                        </div>
+                        <div class="p-4 space-y-3 text-xs sm:text-sm">
+                            ${ktpBannerHtml}
+                            <p><strong>Оқулық (okulyk.kz):</strong> <span class="text-emerald-900 font-medium">${selectedBook}</span></p>
+                            <p><strong>Бөлім / Тақырып:</strong> ${topic}</p>
+                            <p><strong>Ойлау дағдыларының деңгейі:</strong> ${levelText}</p>
+                            <p><strong>Бағалау критерийі (№ 130 бұйрық, 15.07.2026 ж. өзг.):</strong> Білім алушы «${topic}» және сараланған КТЖ тақырыптары бойынша білімін қолданады, ақпаратты талдайды және дәлелді қорытынды жасайды.</p>
+                            
+                            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                                <p class="font-bold text-slate-900 mb-1">${isTJB ? 'ТЖБ' : 'БЖБ'} сараланған тапсырмасы (${timeLimit} минут):</p>
+                                <p class="text-slate-700 leading-relaxed">${taskListHtml}</p>
+                            </div>
+
+                            <table class="w-full border-collapse text-xs mt-3">
+                                <thead>
+                                    <tr class="bg-slate-100 border border-slate-300 text-left">
+                                        <th class="p-2.5 border-r border-slate-300">Бағалау критерийі</th>
+                                        <th class="p-2.5 border-r border-slate-300">Дескриптор (Білім алушы)</th>
+                                        <th class="p-2.5 text-center w-20">Балл</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="border border-slate-300">
+                                        <td class="p-2.5 border-r border-slate-300 align-top" rowspan="3">«${topic}» және КТЖ бойынша білімін қолданады және саралап талдайды</td>
+                                        <td class="p-2.5 border-r border-slate-300">1-ші және 2-ші негізгі фактіні/ұғымды дұрыс анықтайды;</td>
+                                        <td class="p-2.5 text-center font-bold">${d1}</td>
+                                    </tr>
+                                    <tr class="border border-slate-300">
+                                        <td class="p-2.5 border-r border-slate-300">тақырыптың мәнін ашатын дәлелдер келтіреді;</td>
+                                        <td class="p-2.5 text-center font-bold">${d2}</td>
+                                    </tr>
+                                    <tr class="border border-slate-300">
+                                        <td class="p-2.5 border-r border-slate-300">логикалық тұрғыдан негізделген қорытынды жасайды.</td>
+                                        <td class="p-2.5 text-center font-bold">${d3}</td>
+                                    </tr>
+                                    <tr class="bg-slate-50 border border-slate-300 font-bold">
+                                        <td colspan="2" class="p-2.5 text-right border-r border-slate-300">Барлығы:</td>
+                                        <td class="p-2.5 text-center text-emerald-700">${score}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200 text-xs">
+                                <p class="font-bold text-emerald-950 mb-1">Оқу жетістігі деңгейлерінің бағдарлы шкаласы (№ 130 бұйрық):</p>
+                                <p class="text-slate-700">• <strong>Төмен деңгей:</strong> 1–${lowMax} балл &nbsp;|&nbsp; • <strong>Орта деңгей:</strong> ${midMin}–${midMax} балл &nbsp;|&nbsp; • <strong>Жоғары деңгей:</strong> ${highMin}–${score} балл</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const ktpBannerHtmlRu = loadedKTP.fileName
+                    ? `<div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs">
+                        <p class="font-bold text-amber-950 mb-1">Автодифференциация по КТП (${loadedKTP.format}: ${loadedKTP.fileName}) — Приказ №130 (ред. 15.07.2026):</p>
+                        <p class="text-slate-700">${isTJB ? '<strong>СОЧ (Обобщающий блок за четверть):</strong>' : '<strong>СОР (Тематический блок раздела):</strong>'} ${activeTopics.join(' • ')}</p>
+                       </div>`
+                    : `<div class="bg-indigo-50/70 p-3 rounded-xl border border-indigo-200 text-xs text-indigo-950">
+                        <strong>Нормативная основа:</strong> Приказ МОН РК от 6 апреля 2020 года № 130 (с изменениями от 15 июля 2026 года). При загрузке КТП задания СОР и СОЧ автоматически дифференцируются по плану.
+                       </div>`;
+
+                const taskListHtmlRu = isTJB
+                    ? `1. <strong>Интеграция тем КТП (${activeTopics.slice(0, 2).join(', ')}):</strong> Определите ключевые понятия и закономерности четверти.<br>2. <strong>Применение и анализ (${activeTopics[activeTopics.length - 1] || topic}):</strong> Проанализируйте ситуацию и приведите не менее 2 аргументов.<br>3. <strong>Высокий уровень (Приказ №130 • ред. 15.07.2026 г.):</strong> Сформулируйте итоговый аргументированный вывод по изученным разделам.`
+                    : `1. <strong>Ключевые понятия (${activeTopics[0] || topic}):</strong> Укажите 2 важных факта или признака по теме.<br>2. <strong>Практическое применение (${activeTopics[1] || topic}):</strong> Приведите 2 аргумента, раскрывающих суть задания.<br>3. <strong>Вывод и дифференциация (Приказ №130 • 15.07.2026 г.):</strong> Сформулируйте собственный обобщающий вывод.`;
+
+                out.innerHTML = `
+                    <div class="border border-slate-300 rounded-xl overflow-hidden bg-white">
+                        <div class="bg-emerald-50 px-4 py-3 border-b border-slate-300 flex flex-wrap justify-between items-center gap-2">
+                            <div>
+                                <span class="font-bold text-emerald-950 text-xs uppercase block">${type} • ${quarter} четверть • ${subject} (${grade} класс)</span>
+                                <span class="text-[11px] font-medium text-emerald-800">Приказ МОН РК от 06.04.2020 г. № 130 (с изм. от 15.07.2026 г.)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-xs bg-white px-2.5 py-1 rounded-md border border-slate-200 text-slate-700">${timeLimit} мин</span>
+                                <span class="font-bold text-xs bg-white px-2.5 py-1 rounded-md border border-emerald-200 text-emerald-800">Макс. балл: ${score}</span>
+                            </div>
+                        </div>
+                        <div class="p-4 space-y-3 text-xs sm:text-sm">
+                            ${ktpBannerHtmlRu}
+                            <p><strong>Учебник (okulyk.kz):</strong> <span class="text-emerald-900 font-medium">${selectedBook}</span></p>
+                            <p><strong>Раздел / Тема:</strong> ${topic}</p>
+                            <p><strong>Уровень мыслительных навыков:</strong> ${levelText}</p>
+                            <p><strong>Критерий оценивания (Приказ № 130, изм. 15.07.2026 г.):</strong> Обучающийся применяет знания по теме «${topic}» и дифференцированным темам КТП, анализирует информацию и формулирует аргументированный вывод.</p>
+                            
+                            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                                <p class="font-bold text-slate-900 mb-1">Дифференцированное задание ${isTJB ? 'СОЧ' : 'СОР'} (${timeLimit} минут):</p>
+                                <p class="text-slate-700 leading-relaxed">${taskListHtmlRu}</p>
+                            </div>
+
+                            <table class="w-full border-collapse text-xs mt-3">
+                                <thead>
+                                    <tr class="bg-slate-100 border border-slate-300 text-left">
+                                        <th class="p-2.5 border-r border-slate-300">Критерий оценивания</th>
+                                        <th class="p-2.5 border-r border-slate-300">Дескриптор (Обучающийся)</th>
+                                        <th class="p-2.5 text-center w-20">Балл</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="border border-slate-300">
+                                        <td class="p-2.5 border-r border-slate-300 align-top" rowspan="3">Применяет и дифференцированно анализирует знания по «${topic}» и КТП</td>
+                                        <td class="p-2.5 border-r border-slate-300">верно определяет 1-й и 2-й ключевые факты/понятия;</td>
+                                        <td class="p-2.5 text-center font-bold">${d1}</td>
+                                    </tr>
+                                    <tr class="border border-slate-300">
+                                        <td class="p-2.5 border-r border-slate-300">приводит убедительные аргументы, раскрывающие суть темы;</td>
+                                        <td class="p-2.5 text-center font-bold">${d2}</td>
+                                    </tr>
+                                    <tr class="border border-slate-300">
+                                        <td class="p-2.5 border-r border-slate-300">формулирует логически обоснованный вывод.</td>
+                                        <td class="p-2.5 text-center font-bold">${d3}</td>
+                                    </tr>
+                                    <tr class="bg-slate-50 border border-slate-300 font-bold">
+                                        <td colspan="2" class="p-2.5 text-right border-r border-slate-300">Итого:</td>
+                                        <td class="p-2.5 text-center text-emerald-700">${score}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200 text-xs">
+                                <p class="font-bold text-emerald-950 mb-1">Ориентировочная шкала уровней учебных достижений (Приказ № 130):</p>
+                                <p class="text-slate-700">• <strong>Низкий уровень:</strong> 1–${lowMax} баллов &nbsp;|&nbsp; • <strong>Средний уровень:</strong> ${midMin}–${midMax} баллов &nbsp;|&nbsp; • <strong>Высокий уровень:</strong> ${highMin}–${score} баллов</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Class Management Functions
+        function fillSampleStudents() {
+            const sample = [
+                "Әлихан Нұрланұлы",
+                "Айзере Болатқызы",
+                "Ерасыл Талғатұлы",
+                "Кәусар Маратқызы",
+                "Санжар Асқарұлы",
+                "Медина Ержанқызы",
+                "Нұрислам Бақытұлы",
+                "Аяла Серікқызы",
+                "Дәулет Қайратұлы",
+                "Іңкәр Русланқызы",
+                "Әміржан Олжасұлы",
+                "Томирис Арманқызы"
+            ].join("\n");
+            document.getElementById('student-list').value = sample;
+        }
+
+        function getStudentsArray() {
+            const raw = document.getElementById('student-list').value;
+            return raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+        }
+
+        // Import Students from Excel (.xlsx, .xls, .csv) File
+        function importStudentsFromExcel(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false });
+
+                    const extractedNames = [];
+                    const headerKeywords = /^(№|n|no|num|р\/с|аты-жөні|аты жөні|оқушы|оқушының аты-жөні|фио|ф\.и\.о\.?|ученик|учащийся|имя|student|name)$/i;
+
+                    rows.forEach(row => {
+                        if (!Array.isArray(row)) return;
+                        // Filter non-empty cells in the row
+                        const nonEmpty = row
+                            .map(cell => (cell !== null && cell !== undefined) ? String(cell).trim() : '')
+                            .filter(val => val.length > 0);
+
+                        if (nonEmpty.length === 0) return;
+
+                        // Pick the best text cell (usually ФИО is longer than a row number like "1")
+                        let candidate = nonEmpty.find(val => !/^\d+[.)]?$/.test(val) && !headerKeywords.test(val));
+                        if (!candidate) {
+                            candidate = nonEmpty[nonEmpty.length - 1];
+                        }
+
+                        // Skip pure numbers or common column headers
+                        if (candidate && !/^\d+[.)]?$/.test(candidate) && !headerKeywords.test(candidate)) {
+                            extractedNames.push(candidate);
+                        }
+                    });
+
+                    if (extractedNames.length === 0) {
+                        showToast(i18n[currentLang].toast_excel_empty);
+                        return;
+                    }
+
+                    const textarea = document.getElementById('student-list');
+                    const existing = textarea.value.trim();
+                    textarea.value = existing ? `${existing}\n${extractedNames.join('\n')}` : extractedNames.join('\n');
+
+                    const msg = i18n[currentLang].toast_excel_loaded.replace('{count}', extractedNames.length);
+                    showToast(msg);
+                } catch (err) {
+                    console.error('Excel import error:', err);
+                    showToast(i18n[currentLang].toast_excel_error);
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function pickRandomStudent() {
+            const students = getStudentsArray();
+            if (students.length === 0) {
+                showToast(i18n[currentLang].toast_empty_students);
+                return;
+            }
+            const display = document.getElementById('picked-student-name');
+            let count = 0;
+            const interval = setInterval(() => {
+                const rand = students[Math.floor(Math.random() * students.length)];
+                display.textContent = rand;
+                count++;
+                if (count > 12) {
+                    clearInterval(interval);
+                    const winner = students[Math.floor(Math.random() * students.length)];
+                    display.innerHTML = `🎉 ${winner} 🎉`;
+                }
+            }, 60);
+        }
+
+        function divideIntoGroups() {
+            const students = getStudentsArray();
+            if (students.length === 0) {
+                showToast(i18n[currentLang].toast_empty_students);
+                return;
+            }
+            const groupCount = parseInt(document.getElementById('group-count').value);
+            // Shuffle array
+            const shuffled = [...students].sort(() => Math.random() - 0.5);
+            const groups = Array.from({ length: groupCount }, () => []);
+            shuffled.forEach((student, idx) => {
+                groups[idx % groupCount].push(student);
+            });
+
+            const container = document.getElementById('groups-container');
+            const colors = ['border-indigo-200 bg-indigo-50/50', 'border-emerald-200 bg-emerald-50/50', 'border-amber-200 bg-amber-50/50', 'border-violet-200 bg-violet-50/50', 'border-sky-200 bg-sky-50/50', 'border-rose-200 bg-rose-50/50'];
+            
+            container.innerHTML = groups.map((grp, idx) => `
+                <div class="p-4 rounded-xl border ${colors[idx % colors.length]}">
+                    <div class="font-bold text-sm text-slate-900 mb-2 pb-1.5 border-b border-slate-200/80 flex justify-between">
+                        <span>${idx + 1}-${currentLang === 'kz' ? 'топ' : 'группа'}</span>
+                        <span class="text-xs font-normal text-slate-500">${grp.length}</span>
+                    </div>
+                    <ul class="space-y-1 text-xs text-slate-700">
+                        ${grp.map((s, i) => `<li>${i + 1}. ${s}</li>`).join('')}
+                    </ul>
+                </div>
+            `).join('');
+        }
+
+        // Divide Students Randomly into Pairs (2 students per pair; 3 if odd count)
+        function divideIntoPairs() {
+            const students = getStudentsArray();
+            if (students.length === 0) {
+                showToast(i18n[currentLang].toast_empty_students);
+                return;
+            }
+
+            const shuffled = [...students].sort(() => Math.random() - 0.5);
+            const pairs = [];
+            for (let i = 0; i < shuffled.length; i += 2) {
+                if (i + 1 < shuffled.length) {
+                    pairs.push([shuffled[i], shuffled[i + 1]]);
+                } else if (pairs.length > 0) {
+                    // Attach odd remaining student to the last pair as a 3-person trio
+                    pairs[pairs.length - 1].push(shuffled[i]);
+                } else {
+                    pairs.push([shuffled[i]]);
+                }
+            }
+
+            const container = document.getElementById('groups-container');
+            const colors = [
+                'border-amber-200 bg-amber-50/50',
+                'border-indigo-200 bg-indigo-50/50',
+                'border-emerald-200 bg-emerald-50/50',
+                'border-violet-200 bg-violet-50/50',
+                'border-sky-200 bg-sky-50/50',
+                'border-rose-200 bg-rose-50/50'
+            ];
+            const pairLabel = i18n[currentLang].pair_title_prefix;
+
+            container.innerHTML = pairs.map((pair, idx) => `
+                <div class="p-4 rounded-xl border ${colors[idx % colors.length]}">
+                    <div class="font-bold text-sm text-slate-900 mb-2 pb-1.5 border-b border-slate-200/80 flex justify-between">
+                        <span>${pairLabel} #${idx + 1}</span>
+                        <span class="text-xs font-normal text-slate-500">${pair.length}</span>
+                    </div>
+                    <ul class="space-y-1 text-xs text-slate-700">
+                        ${pair.map((s, i) => `<li>${i + 1}. ${s}</li>`).join('')}
+                    </ul>
+                </div>
+            `).join('');
+        }
+
+        // Render AI Prompts Library
+        function renderPrompts() {
+            const grid = document.getElementById('prompts-grid');
+            grid.innerHTML = promptsData.map((p, idx) => {
+                const tag = currentLang === 'kz' ? p.tag_kz : p.tag_ru;
+                const title = currentLang === 'kz' ? p.title_kz : p.title_ru;
+                const text = currentLang === 'kz' ? p.text_kz : p.text_ru;
+                const btnText = currentLang === 'kz' ? 'Промптты көшіру' : 'Копировать промпт';
+
+                return `
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between gap-4">
+                        <div>
+                            <span class="inline-block px-2.5 py-0.5 text-[11px] font-bold bg-indigo-50 text-indigo-700 rounded-md mb-2">${tag}</span>
+                            <h4 class="font-bold text-slate-900 text-sm mb-2">${title}</h4>
+                            <p id="prompt-txt-${idx}" class="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200 leading-relaxed font-mono">${text}</p>
+                        </div>
+                        <button onclick="copyContent('prompt-txt-${idx}')" class="self-end px-3.5 py-2 text-xs font-semibold bg-slate-900 hover:bg-indigo-600 text-white rounded-xl transition-colors flex items-center gap-1.5">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span>${btnText}</span>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        // Copy Content to Clipboard (iFrame safe)
+        function copyContent(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const text = el.innerText;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast(i18n[currentLang].toast_copied);
+            } catch (err) {
+                console.error('Copy failed', err);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        // Download Valid Word (.doc) File
+        function downloadDoc(elementId, filenamePrefix) {
+            const targetEl = document.getElementById(elementId);
+            if (!targetEl) return;
+            const content = targetEl.innerHTML;
+            const header = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+                      xmlns:w='urn:schemas-microsoft-com:office:word' 
+                      xmlns='http://www.w3.org/TR/REC-html40'>
+                <head><meta charset='utf-8'><title>Smart Teacher Export</title>
+                <style>
+                    body { font-family: 'Times New Roman', serif; font-size: 12pt; }
+                    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+                    td, th { border: 1px solid #000000; padding: 6px; text-align: left; }
+                </style>
+                </head><body>`;
+            const footer = "</body></html>";
+            const sourceHTML = header + content + footer;
+
+            const blob = new Blob(['\ufeff', sourceHTML], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${filenamePrefix}_${currentLang.toUpperCase()}.doc`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast(i18n[currentLang].toast_doc_downloaded);
+        }
+    </script>
+</body>
+</html>
